@@ -2,22 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FTC OPR Rankings v1.2</title>
+  <title>FTC OPR Rankings</title>
   <style>
     body {
       background-color: #121212;
       color: #e0e0e0;
       font-family: 'Segoe UI', sans-serif;
       margin: 0;
-      padding: 20px;
+      padding: 0;
+      text-align: center;
     }
+
     h1 {
-      font-size: 28px;
-      color: #fff;
+      font-size: 30px;
+      margin: 20px 0 10px;
+      color: #ffffff;
     }
+
+    .info {
+      margin: 5px 0 15px;
+      font-size: 16px;
+      color: #cccccc;
+    }
+
     .input-container {
-      margin-bottom: 20px;
+      margin: 20px 0;
     }
+
     input, select, button {
       padding: 10px;
       margin: 5px;
@@ -26,31 +37,52 @@
       border: 1px solid #333;
       border-radius: 5px;
     }
+
     table {
-      width: 100%;
+      width: 80%;
+      margin: 20px auto;
       border-collapse: collapse;
-      margin-top: 20px;
       background-color: #1e1e1e;
     }
+
     th, td {
       padding: 12px;
       border: 1px solid #333;
-      text-align: left;
+      text-align: center;
     }
+
     th {
       background-color: #292929;
     }
+
     tr:nth-child(even) {
       background-color: #1b1b1b;
     }
+
     .highlight {
       color: #bb86fc;
+    }
+
+    a {
+      color: #03dac5;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    #footer {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #888;
     }
   </style>
 </head>
 <body>
 
   <h1 id="event-title">FTC OPR Rankings</h1>
+  <div class="info" id="event-info"></div>
   <div class="input-container">
     <input type="text" id="eventCode" placeholder="Enter event code (e.g., OCHOA)">
     <input type="text" id="year" placeholder="Enter year (e.g., 2024)">
@@ -74,7 +106,16 @@
     <tbody></tbody>
   </table>
 
+  <div class="info" id="total-teams"></div>
+
+  <div id="footer">Powered by FTCScout API</div>
+
   <script>
+    function formatDate(dateStr) {
+      const [year, month, day] = dateStr.split("-");
+      return `${month}/${day}/${year}`;
+    }
+
     async function fetchJSON(url) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
@@ -91,23 +132,49 @@
 
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
+        const start = formatDate(event.start);
+        const end = formatDate(event.end);
+        const locationStr = `${event.venue ?? ""}, ${event.address ?? ""}, ${event.city}, ${event.state}, ${event.country}`;
+        const googleMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`;
+        const stream = event.streamURL ? `<a href="${event.streamURL}" target="_blank">Watch Livestream</a> | ` : '';
+
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
+        document.getElementById("event-info").innerHTML = `
+          ${stream}
+          <a href="${googleMaps}" target="_blank">View on Google Maps</a> <br>
+          ${start} - ${end}
+        `;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
         const teamStatsList = [];
 
         for (const team of teams) {
-          const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
-          const value = stats?.[sortBy]?.value ?? null;
-          if (value !== null) {
-            teamStatsList.push({
-              teamNumber: team.teamNumber,
-              opr: parseFloat(value.toFixed(2))
-            });
+          let opr = "No Statistics Available";
+          let hasData = false;
+
+          try {
+            const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
+            if (stats && stats[sortBy] && typeof stats[sortBy].value === "number") {
+              opr = parseFloat(stats[sortBy].value.toFixed(2));
+              hasData = true;
+            }
+          } catch (e) {
+            // Continue if individual team stats fetch fails
           }
+
+          teamStatsList.push({
+            teamNumber: team.teamNumber,
+            opr,
+            hasData
+          });
         }
 
-        teamStatsList.sort((a, b) => b.opr - a.opr);
+        teamStatsList.sort((a, b) => {
+          if (a.hasData && b.hasData) return b.opr - a.opr;
+          if (a.hasData) return -1;
+          if (b.hasData) return 1;
+          return 0;
+        });
 
         const tbody = document.querySelector('#rankings tbody');
         tbody.innerHTML = "";
@@ -121,6 +188,8 @@
           `;
           tbody.appendChild(row);
         });
+
+        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
 
       } catch (error) {
         alert("Failed to load data. Check event code/year.");
