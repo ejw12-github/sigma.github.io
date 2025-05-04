@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FTC OPR Rankings</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 28px;
+      color: #fff;
+    }
+    .input-container {
+      margin-bottom: 20px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #1e1e1e;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #333;
+      text-align: left;
+    }
+    th {
+      background-color: #292929;
+    }
+    tr:nth-child(even) {
+      background-color: #1b1b1b;
+    }
+    .highlight {
+      color: #bb86fc;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 id="event-title">FTC OPR Rankings</h1>
+  <div class="input-container">
+    <input type="text" id="eventCode" placeholder="Enter event code (e.g., OCHOA)">
+    <input type="text" id="year" placeholder="Enter year (e.g., 2024)">
+    <select id="sortBy">
+      <option value="tot">Total OPR</option>
+      <option value="auto">Auto OPR</option>
+      <option value="dc">Teleop OPR</option>
+      <option value="eg">Endgame OPR</option>
+    </select>
+    <button onclick="loadData()">Load Rankings</button>
+  </div>
+
+  <table id="rankings">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Team</th>
+        <th class="highlight" id="oprHeader">OPR</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return await res.json();
+    }
+
+    async function loadData() {
+      const code = document.getElementById('eventCode').value.trim();
+      const year = document.getElementById('year').value.trim();
+      const sortBy = document.getElementById('sortBy').value;
+      const sortLabel = document.querySelector('#sortBy option:checked').textContent;
+
+      document.getElementById("oprHeader").textContent = sortLabel;
+
+      const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
+      document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
+
+      const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
+      const results = [];
+
+      for (const t of teams) {
+        const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${t.teamNumber}/quick-stats?season=${year}`);
+        const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${t.teamNumber}`);
+        const name = info.name || "Unknown";
+        const loc = info.country === "Independent" ? "Independent" : `${info.city || ""}, ${info.state || ""}, ${info.country || ""}`;
+        const value = stats[sortBy]?.value || 0;
+        results.push({
+          name: `#${t.teamNumber} - ${name}`,
+          location: loc,
+          opr: parseFloat(value.toFixed(2))
+        });
+      }
+
+      results.sort((a, b) => b.opr - a.opr);
+
+      const tbody = document.querySelector('#rankings tbody');
+      tbody.innerHTML = "";
+      results.forEach((team, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${team.name}<br><small>${team.location}</small></td>
+          <td class="highlight">${team.opr}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+  </script>
+
+</body>
+</html>
