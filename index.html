@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FTC Event Scouting</title>
+  <title>FTC OPR Rankings</title>
   <style>
     body {
       background-color: #121212;
@@ -39,14 +39,14 @@
     }
 
     table {
-      width: 80%;
+      width: 90%;
       margin: 20px auto;
       border-collapse: collapse;
       background-color: #1e1e1e;
     }
 
     th, td {
-      padding: 12px;
+      padding: 10px;
       border: 1px solid #333;
       text-align: center;
     }
@@ -61,6 +61,7 @@
 
     .highlight {
       color: #bb86fc;
+      font-weight: bold;
     }
 
     a {
@@ -101,7 +102,10 @@
       <tr>
         <th>#</th>
         <th>Team</th>
-        <th class="highlight" id="oprHeader">OPR</th>
+        <th id="totHeader">Total</th>
+        <th id="autoHeader">Auto</th>
+        <th id="dcHeader">Teleop</th>
+        <th id="egHeader">Endgame</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -127,9 +131,9 @@
       const code = document.getElementById('eventCode').value.trim();
       const year = document.getElementById('year').value.trim();
       const sortBy = document.getElementById('sortBy').value;
-      const sortLabel = document.querySelector('#sortBy option:checked').textContent;
 
-      document.getElementById("oprHeader").textContent = sortLabel;
+      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
+      document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
@@ -150,31 +154,48 @@
         const teamStatsList = [];
 
         for (const team of teams) {
-          let opr = "No Statistics Available";
-          let hasData = false;
+          const teamNumber = team.teamNumber;
+          const name = team.name || "No Name Provided";
+          const statsUrl = `https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`;
+          let stats = {};
 
           try {
-            const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
-            if (stats && stats[sortBy] && typeof stats[sortBy].value === "number") {
-              opr = parseFloat(stats[sortBy].value.toFixed(2));
-              hasData = true;
-            }
+            stats = await fetchJSON(statsUrl);
           } catch (e) {
-            // continue
+            stats = {};
           }
 
-          teamStatsList.push({
-            teamNumber: team.teamNumber,
-            teamName: team.teamName || "No Name Provided",
-            opr,
-            hasData
-          });
+          const categories = ['tot', 'auto', 'dc', 'eg'];
+          const teamData = { teamNumber, name, values: {}, hasData: false };
+
+          for (const cat of categories) {
+            const value = stats[cat]?.value;
+            const rank = stats[cat]?.rank;
+            if (typeof value === 'number' && typeof rank === 'number') {
+              teamData.values[cat] = `${value.toFixed(2)} (${rank})`;
+              teamData.hasData = true;
+            } else {
+              teamData.values[cat] = "No Statistics Available";
+            }
+          }
+
+          teamStatsList.push(teamData);
         }
 
+        // Sort by selected stat, but move no-data teams to bottom
         teamStatsList.sort((a, b) => {
-          if (a.hasData && b.hasData) return b.opr - a.opr;
-          if (a.hasData) return -1;
-          if (b.hasData) return 1;
+          const aVal = a.values[sortBy];
+          const bVal = b.values[sortBy];
+
+          const aValid = aVal !== "No Statistics Available";
+          const bValid = bVal !== "No Statistics Available";
+
+          if (aValid && bValid) {
+            const aNum = parseFloat(aVal.split(" ")[0]);
+            const bNum = parseFloat(bVal.split(" ")[0]);
+            return bNum - aNum;
+          } else if (aValid) return -1;
+          else if (bValid) return 1;
           return 0;
         });
 
@@ -187,10 +208,13 @@
             <td>${i + 1}</td>
             <td>
               <a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">
-                #${team.teamNumber} - ${team.teamName}
+                #${team.teamNumber} - ${team.name}
               </a>
             </td>
-            <td class="highlight">${team.opr}</td>
+            <td>${team.values['tot']}</td>
+            <td>${team.values['auto']}</td>
+            <td>${team.values['dc']}</td>
+            <td>${team.values['eg']}</td>
           `;
           tbody.appendChild(row);
         });
