@@ -8,14 +8,14 @@
       background-color: #121212;
       color: #e0e0e0;
       font-family: 'Segoe UI', sans-serif;
+      text-align: center;
       margin: 0;
       padding: 0;
-      text-align: center;
     }
 
     h1 {
       font-size: 30px;
-      margin: 20px 0 10px;
+      margin-top: 20px;
       color: #ffffff;
     }
 
@@ -64,7 +64,7 @@
     }
 
     a {
-      color: #03dac5;
+      color: #9cd1ff;
       text-decoration: none;
     }
 
@@ -83,6 +83,7 @@
 
   <h1 id="event-title">FTC OPR Rankings</h1>
   <div class="info" id="event-info"></div>
+
   <div class="input-container">
     <input type="text" id="eventCode" placeholder="Enter event code (e.g., OCHOA)">
     <input type="text" id="year" placeholder="Enter year (e.g., 2024)">
@@ -141,7 +142,7 @@
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
         document.getElementById("event-info").innerHTML = `
           ${stream}
-          <a href="${googleMaps}" target="_blank">View on Google Maps</a> <br>
+          <a href="${googleMaps}" target="_blank">View on Google Maps</a><br>
           ${start} - ${end}
         `;
 
@@ -159,11 +160,12 @@
               hasData = true;
             }
           } catch (e) {
-            // Continue if individual team stats fetch fails
+            // continue
           }
 
           teamStatsList.push({
             teamNumber: team.teamNumber,
+            teamName: team.teamName || "No Name Provided",
             opr,
             hasData
           });
@@ -183,7 +185,11 @@
           const row = document.createElement('tr');
           row.innerHTML = `
             <td>${i + 1}</td>
-            <td>#${team.teamNumber}</td>
+            <td>
+              <a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">
+                #${team.teamNumber} - ${team.teamName}
+              </a>
+            </td>
             <td class="highlight">${team.opr}</td>
           `;
           tbody.appendChild(row);
