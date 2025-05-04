@@ -89,38 +89,43 @@
 
       document.getElementById("oprHeader").textContent = sortLabel;
 
-      const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
-      document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
+      try {
+        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
+        document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
 
-      const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
-      const results = [];
+        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
+        const teamStatsList = [];
 
-      for (const t of teams) {
-        const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${t.teamNumber}/quick-stats?season=${year}`);
-        const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${t.teamNumber}`);
-        const name = info.name || "Unknown";
-        const loc = info.country === "Independent" ? "Independent" : `${info.city || ""}, ${info.state || ""}, ${info.country || ""}`;
-        const value = stats[sortBy]?.value || 0;
-        results.push({
-          name: `#${t.teamNumber} - ${name}`,
-          location: loc,
-          opr: parseFloat(value.toFixed(2))
+        for (const team of teams) {
+          const stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
+          const value = stats?.[sortBy]?.value ?? null;
+          if (value !== null) {
+            teamStatsList.push({
+              teamNumber: team.teamNumber,
+              opr: parseFloat(value.toFixed(2))
+            });
+          }
+        }
+
+        teamStatsList.sort((a, b) => b.opr - a.opr);
+
+        const tbody = document.querySelector('#rankings tbody');
+        tbody.innerHTML = "";
+
+        teamStatsList.forEach((team, i) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${i + 1}</td>
+            <td>#${team.teamNumber}</td>
+            <td class="highlight">${team.opr}</td>
+          `;
+          tbody.appendChild(row);
         });
+
+      } catch (error) {
+        alert("Failed to load data. Check event code/year.");
+        console.error(error);
       }
-
-      results.sort((a, b) => b.opr - a.opr);
-
-      const tbody = document.querySelector('#rankings tbody');
-      tbody.innerHTML = "";
-      results.forEach((team, i) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${i + 1}</td>
-          <td>${team.name}<br><small>${team.location}</small></td>
-          <td class="highlight">${team.opr}</td>
-        `;
-        tbody.appendChild(row);
-      });
     }
   </script>
 
