@@ -78,6 +78,11 @@
       font-size: 14px;
       color: #888;
     }
+
+    .loading {
+      color: lightgreen;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -121,6 +126,12 @@
       return `${month}/${day}/${year}`;
     }
 
+    function toOrdinal(n) {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
     async function fetchJSON(url) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
@@ -135,6 +146,10 @@
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
+      const infoDiv = document.getElementById("event-info");
+      infoDiv.style.color = "lightgreen";
+      infoDiv.innerHTML = "Loading event info...";
+
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
         const start = formatDate(event.start);
@@ -144,17 +159,21 @@
         const stream = event.streamURL ? `<a href="${event.streamURL}" target="_blank">Watch Livestream</a> | ` : '';
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        document.getElementById("event-info").innerHTML = `
+        infoDiv.innerHTML = `
           ${stream}
           <a href="${googleMaps}" target="_blank">${locationStr}</a><br>
-          ${start} - ${end}
+          ${start} - ${end}<br>
+          <span id="loading-status" class="loading">Loading teams...</span>
         `;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
         const teamStatsList = [];
 
-        for (const team of teams) {
+        for (let i = 0; i < teams.length; i++) {
+          const team = teams[i];
           const teamNumber = team.teamNumber;
+
+          document.getElementById("loading-status").textContent = `Loading... Processed ${i + 1} of ${teams.length} teams`;
 
           let name = "Unknown";
           try {
@@ -174,7 +193,7 @@
             const value = stats[cat]?.value;
             const rank = stats[cat]?.rank;
             if (typeof value === 'number' && typeof rank === 'number') {
-              teamData.values[cat] = `${value.toFixed(2)} (${rank})`;
+              teamData.values[cat] = `${value.toFixed(2)} (${toOrdinal(rank)})`;
               teamData.hasData = true;
             } else {
               teamData.values[cat] = "No Statistics Available";
@@ -216,6 +235,7 @@
           tbody.appendChild(row);
         });
 
+        document.getElementById("loading-status").remove();
         document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
 
       } catch (error) {
