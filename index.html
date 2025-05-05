@@ -1,215 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FTC Event Rankings</title>
+  <meta charset="UTF-8">
+  <title>FTC OPR Rankings</title>
   <style>
     body {
-      background-color: #121212;
-      color: #ffffff;
+      background-color: #111;
+      color: white;
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
+      text-align: center;
     }
     h1 {
-      color: #bb86fc;
-      text-align: center;
+      font-size: 28px;
     }
-    .input-container {
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-    input {
-      padding: 0.5rem;
-      margin: 0.2rem;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      background-color: #bb86fc;
-      color: #121212;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
+    .progress {
+      margin-top: 10px;
+      font-size: 14px;
     }
     table {
-      width: 100%;
-      max-width: 900px;
+      margin: 30px auto;
       border-collapse: collapse;
-      margin-top: 2rem;
+      width: 90%;
+      max-width: 1000px;
     }
     th, td {
+      padding: 10px;
       border: 1px solid #333;
-      padding: 0.75rem;
-      text-align: center;
     }
     th {
-      background-color: #1f1f1f;
+      background-color: #222;
     }
     .highlight {
-      color: #bb86fc;
+      background-color: #800080;
       font-weight: bold;
     }
     a {
-      color: #bb86fc;
+      color: #00aaff;
       text-decoration: none;
     }
-    .info {
-      margin-top: 1rem;
-      text-align: center;
-      color: #ccc;
+    a:hover {
+      text-decoration: underline;
+    }
+    .event-details {
+      font-size: 14px;
+      color: #aaa;
     }
   </style>
 </head>
 <body>
-  <h1 id="title">FTC Event Rankings</h1>
-  <div class="input-container">
-    <input id="eventCode" placeholder="Event Code" />
-    <input id="year" placeholder="Year" value="2024" />
-    <select id="sortMethod">
-      <option value="tot">Total</option>
-      <option value="auto">Auto</option>
-      <option value="dc">TeleOP</option>
-      <option value="eg">Endgame</option>
-    </select>
-    <button onclick="loadData()">Load Rankings</button>
-  </div>
-
-  <div id="progress" class="info"></div>
-  <div class="info" id="eventInfo"></div>
-  <table id="rankings"></table>
+  <h1 id="eventTitle">Loading...</h1>
+  <div class="progress" id="progressBar"></div>
+  <table id="rankingTable">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Team</th>
+        <th>np OPR</th>
+        <th>Auto OPR</th>
+        <th>Teleop OPR</th>
+        <th>np AVG</th>
+        <th>Event</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-    function toOrdinal(n) {
-      const s = ["th", "st", "nd", "rd"];
-      const v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    }
+    const eventKey = "2024-championship-och"; // change this to your desired event key
+    const statType = "np";
+    const statLabel = {
+      tot: "np OPR",
+      auto: "Auto OPR",
+      tele: "Teleop OPR",
+      end: "Endgame OPR",
+      avg: "np AVG"
+    };
 
-    async function fetchJSON(url) {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch " + url);
-      return res.json();
-    }
+    const suffix = (n) => {
+      if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+      return `${n}${["th","st","nd","rd"][n%10] || "th"}`;
+    };
 
-    async function loadData() {
-      const eventCode = document.getElementById("eventCode").value;
-      const year = document.getElementById("year").value;
-      const sortMethod = document.getElementById("sortMethod").value;
+    async function loadRankings() {
+      const title = document.getElementById("eventTitle");
+      const progress = document.getElementById("progressBar");
+      const tbody = document.querySelector("#rankingTable tbody");
 
-      const sortDisplay = {
-        tot: "Total",
-        auto: "Auto",
-        dc: "TeleOP",
-        eg: "Endgame"
-      }[sortMethod];
+      const res = await fetch(`https://api.ftcscout.org/rest/v1/events/${eventKey}`);
+      const eventData = await res.json();
+      title.innerText = eventData.name;
 
-      document.getElementById("rankings").innerHTML = "";
-      document.getElementById("eventInfo").textContent = "";
+      const start = new Date(eventData.startDate);
+      const end = new Date(eventData.endDate);
+      const dateStr = `${(start.getMonth()+1).toString().padStart(2, '0')}/${start.getDate().toString().padStart(2, '0')}/${start.getFullYear()} - ${(end.getMonth()+1).toString().padStart(2, '0')}/${end.getDate().toString().padStart(2, '0')}/${end.getFullYear()}`;
 
-      const eventData = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${eventCode}/`);
-      const eventName = eventData.name || "Unknown Event";
-      const startDate = new Date(eventData.start).toLocaleDateString();
-      const endDate = new Date(eventData.end).toLocaleDateString();
-      const venue = eventData.venue || "";
-      const address = `${eventData.address || ''}, ${eventData.city || ''}, ${eventData.state || ''}, ${eventData.country || ''}`;
-      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-      const livestream = eventData.livestreamURL;
+      const locationLink = `<a href="https://maps.google.com/?q=${encodeURIComponent(eventData.location)}" target="_blank">${eventData.location}</a>`;
+      const websiteLink = eventData.website ? `<br><a href="${eventData.website}" target="_blank">${eventData.website}</a>` : "";
 
-      document.getElementById("title").textContent = `${eventName}`;
-      document.getElementById("eventInfo").innerHTML = `
-        Dates: ${startDate} - ${endDate}<br>
-        <a href="${mapsLink}" target="_blank">Google Maps</a><br>
-        ${livestream ? `<a href="${livestream}" target="_blank">Watch Livestream</a><br>` : ""}
-      `;
+      const oprRes = await fetch(`https://api.ftcscout.org/rest/v1/events/${eventKey}/opr`);
+      const oprData = await oprRes.json();
 
-      const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${eventCode}/teams`);
+      const allTeams = new Set(Object.keys(oprData["tot"] || {}));
+      ["auto", "tele", "end", "avg"].forEach(k => {
+        if (oprData[k]) Object.keys(oprData[k]).forEach(t => allTeams.add(t));
+      });
 
-      const teamStatsList = [];
+      const teams = Array.from(allTeams);
+      const processed = [];
 
       for (let i = 0; i < teams.length; i++) {
         const team = teams[i];
-        const teamNumber = team.teamNumber;
+        progress.innerText = `Processing ${i+1} / ${teams.length} Teams\nCurrently processing ${team}`;
 
-        document.getElementById("progress").innerHTML = `
-          Teams Processed: ${i} / ${teams.length}<br>
-          Currently Processing: #${teamNumber}
-        `;
-
-        let name = "Unknown";
         try {
-          const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
-          name = teamDetails?.name || "Unknown";
-        } catch {}
+          const res = await fetch(`https://api.ftcscout.org/rest/v1/teams/${team}`);
+          const { name } = await res.json();
+          const row = document.createElement("tr");
 
-        document.getElementById("progress").innerHTML = `
-          Teams Processed: ${i + 1} / ${teams.length}<br>
-          Currently Processing: #${teamNumber} - ${name}
-        `;
+          const ranking = {
+            tot: oprData.tot?.[team]?.rank,
+            auto: oprData.auto?.[team]?.rank,
+            tele: oprData.tele?.[team]?.rank,
+            end: oprData.end?.[team]?.rank,
+            avg: oprData.avg?.[team]?.rank
+          };
 
-        let stats = {};
-        try {
-          stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
-        } catch {}
+          const scores = {
+            tot: oprData.tot?.[team]?.opr,
+            auto: oprData.auto?.[team]?.opr,
+            tele: oprData.tele?.[team]?.opr,
+            end: oprData.end?.[team]?.opr,
+            avg: oprData.avg?.[team]?.opr
+          };
 
-        const categories = ['tot', 'auto', 'dc', 'eg'];
-        const teamData = { teamNumber, name, values: {}, hasData: false, sortValue: -1 };
+          const teamRank = ranking[statType];
+          const rankCell = document.createElement("td");
+          rankCell.innerText = teamRank ? suffix(teamRank) : "-";
+          row.appendChild(rankCell);
 
-        for (const cat of categories) {
-          const value = stats[cat]?.value;
-          const rank = stats[cat]?.rank;
-          if (typeof value === 'number' && typeof rank === 'number') {
-            teamData.values[cat] = `${value.toFixed(2)} (${toOrdinal(rank)})`;
-            teamData.hasData = true;
-            if (cat === sortMethod) teamData.sortValue = value;
-          } else {
-            teamData.values[cat] = "No Statistics Available";
-          }
+          const teamCell = document.createElement("td");
+          teamCell.innerHTML = `<a href="https://ftcscout.org/teams/${team}" target="_blank">#${team} - ${name}</a>`;
+          row.appendChild(teamCell);
+
+          ["tot", "auto", "tele", "avg"].forEach(k => {
+            const cell = document.createElement("td");
+            if (scores[k] != null) {
+              cell.innerText = `${scores[k].toFixed(2)} (${suffix(ranking[k])})`;
+              if (k === statType) cell.classList.add("highlight");
+            } else {
+              cell.innerText = "No Statistics Available";
+            }
+            row.appendChild(cell);
+          });
+
+          const eventCell = document.createElement("td");
+          eventCell.innerHTML = `${eventData.name}<div class="event-details">${dateStr}<br>${locationLink}${websiteLink}</div>`;
+          row.appendChild(eventCell);
+
+          processed.push({ rank: teamRank ?? Infinity, row });
+        } catch {
+          // skip on error
         }
-
-        teamStatsList.push(teamData);
       }
 
-      document.getElementById("progress").textContent = "Finished loading all team data.";
-
-      const sorted = teamStatsList.sort((a, b) => {
-        if (a.hasData && b.hasData) return b.sortValue - a.sortValue;
-        if (a.hasData) return -1;
-        if (b.hasData) return 1;
-        return 0;
-      });
-
-      const table = document.getElementById("rankings");
-      table.innerHTML = `
-        <tr>
-          <th>Rank</th>
-          <th>Team</th>
-          <th class="${sortMethod === 'tot' ? 'highlight' : ''}">Total</th>
-          <th class="${sortMethod === 'auto' ? 'highlight' : ''}">Auto</th>
-          <th class="${sortMethod === 'dc' ? 'highlight' : ''}">TeleOP</th>
-          <th class="${sortMethod === 'eg' ? 'highlight' : ''}">Endgame</th>
-        </tr>
-      `;
-
-      sorted.forEach((team, i) => {
-        const rank = team.hasData ? toOrdinal(i + 1) : "";
-        const teamLink = `https://ftcscout.org/teams/${team.teamNumber}`;
-        table.innerHTML += `
-          <tr>
-            <td>${rank}</td>
-            <td><a href="${teamLink}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
-            <td>${team.values.tot}</td>
-            <td>${team.values.auto}</td>
-            <td>${team.values.dc}</td>
-            <td>${team.values.eg}</td>
-          </tr>
-        `;
-      });
-
-      document.getElementById("eventInfo").innerHTML += `<br>Total Teams Scouted: ${teamStatsList.length}`;
+      processed.sort((a, b) => a.rank - b.rank);
+      processed.forEach(t => tbody.appendChild(t.row));
+      progress.innerText = `Total Teams Scouted: ${teams.length}`;
     }
+
+    loadRankings();
   </script>
 </body>
 </html>
