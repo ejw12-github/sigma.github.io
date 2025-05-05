@@ -1,207 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>FTC OPR Rankings</title>
   <style>
     body {
-      background-color: #111;
-      color: white;
-      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
       text-align: center;
+      margin: 0;
+      padding: 0;
     }
+
     h1 {
-      font-size: 28px;
+      font-size: 30px;
+      margin-top: 20px;
+      color: #ffffff;
     }
-    .progress {
-      margin-top: 10px;
-      font-size: 14px;
+
+    .info {
+      margin: 5px 0 15px;
+      font-size: 16px;
+      color: #cccccc;
     }
+
+    .input-container {
+      margin: 20px 0;
+    }
+
+    input, select, button {
+      padding: 10px;
+      margin: 5px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 5px;
+    }
+
     table {
-      margin: 30px auto;
-      border-collapse: collapse;
       width: 90%;
-      max-width: 1000px;
+      margin: 20px auto;
+      border-collapse: collapse;
+      background-color: #1e1e1e;
     }
+
     th, td {
       padding: 10px;
       border: 1px solid #333;
+      text-align: center;
     }
+
     th {
-      background-color: #222;
+      background-color: #292929;
     }
+
+    tr:nth-child(even) {
+      background-color: #1b1b1b;
+    }
+
     .highlight {
-      background-color: #800080;
+      color: #bb86fc;
       font-weight: bold;
     }
+
     a {
-      color: #00aaff;
+      color: #9cd1ff;
       text-decoration: none;
     }
+
     a:hover {
       text-decoration: underline;
     }
-    .event-details {
+
+    #footer {
+      margin-top: 30px;
       font-size: 14px;
-      color: #aaa;
-    }
-    .input-container {
-      margin-top: 20px;
-    }
-    input[type="text"] {
-      padding: 5px;
-      font-size: 16px;
-      width: 300px;
-    }
-    button {
-      padding: 5px 10px;
-      font-size: 16px;
-      margin-left: 10px;
+      color: #888;
     }
   </style>
 </head>
 <body>
-  <h1>FTC OPR Rankings</h1>
+
+  <h1 id="event-title">FTC OPR Rankings</h1>
+  <div class="info" id="event-info"></div>
+
   <div class="input-container">
-    <input type="text" id="eventKeyInput" placeholder="Enter Event Key" />
-    <button onclick="loadRankings()">Load Event</button>
+    <input type="text" id="eventCode" placeholder="Enter event code (e.g., OCHOA)">
+    <input type="text" id="year" placeholder="Enter year (e.g., 2024)">
+    <select id="sortBy">
+      <option value="tot">Total OPR</option>
+      <option value="auto">Auto OPR</option>
+      <option value="dc">Teleop OPR</option>
+      <option value="eg">Endgame OPR</option>
+    </select>
+    <button onclick="loadData()">Load Rankings</button>
   </div>
-  <div class="progress" id="progressBar"></div>
-  <table id="rankingTable" style="display: none;">
+
+  <table id="rankings">
     <thead>
       <tr>
-        <th>Rank</th>
+        <th>#</th>
         <th>Team</th>
-        <th>np OPR</th>
-        <th>Auto OPR</th>
-        <th>Teleop OPR</th>
-        <th>np AVG</th>
-        <th>Event</th>
+        <th id="totHeader">Total</th>
+        <th id="autoHeader">Auto</th>
+        <th id="dcHeader">Teleop</th>
+        <th id="egHeader">Endgame</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
+  <div class="info" id="total-teams"></div>
+
+  <div id="footer">Powered by FTCScout API</div>
+
   <script>
-    const statType = "np";
-    const statLabel = {
-      tot: "np OPR",
-      auto: "Auto OPR",
-      tele: "Teleop OPR",
-      end: "Endgame OPR",
-      avg: "np AVG"
-    };
+    function formatDate(dateStr) {
+      const [year, month, day] = dateStr.split("-");
+      return `${month}/${day}/${year}`;
+    }
 
-    const suffix = (n) => {
-      if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
-      return `${n}${["th","st","nd","rd"][n%10] || "th"}`;
-    };
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return await res.json();
+    }
 
-    async function loadRankings() {
-      const eventKey = document.getElementById("eventKeyInput").value.trim();
-      if (!eventKey) {
-        alert("Please enter an event key.");
-        return;
-      }
+    async function loadData() {
+      const code = document.getElementById('eventCode').value.trim();
+      const year = document.getElementById('year').value.trim();
+      const sortBy = document.getElementById('sortBy').value;
 
-      const title = document.querySelector("h1");
-      const progress = document.getElementById("progressBar");
-      const tbody = document.querySelector("#rankingTable tbody");
-      const table = document.getElementById("rankingTable");
-
-      title.innerText = "Loading...";
-      progress.innerText = "";
-      tbody.innerHTML = "";
-      table.style.display = "none";
+      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
+      document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
       try {
-        const res = await fetch(`https://api.ftcscout.org/rest/v1/events/${eventKey}`);
-        if (!res.ok) throw new Error("Event not found");
-        const eventData = await res.json();
-        title.innerText = eventData.name;
+        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
+        const start = formatDate(event.start);
+        const end = formatDate(event.end);
+        const locationStr = `${event.venue ?? ""}, ${event.address ?? ""}, ${event.city}, ${event.state}, ${event.country}`;
+        const googleMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`;
+        const stream = event.streamURL ? `<a href="${event.streamURL}" target="_blank">Watch Livestream</a> | ` : '';
 
-        const start = new Date(eventData.startDate);
-        const end = new Date(eventData.endDate);
-        const dateStr = `${(start.getMonth()+1).toString().padStart(2, '0')}/${start.getDate().toString().padStart(2, '0')}/${start.getFullYear()} - ${(end.getMonth()+1).toString().padStart(2, '0')}/${end.getDate().toString().padStart(2, '0')}/${end.getFullYear()}`;
+        document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
+        document.getElementById("event-info").innerHTML = `
+          ${stream}
+          <a href="${googleMaps}" target="_blank">${locationStr}</a><br>
+          ${start} - ${end}
+        `;
 
-        const locationLink = `<a href="https://maps.google.com/?q=${encodeURIComponent(eventData.location)}" target="_blank">${eventData.location}</a>`;
-        const websiteLink = eventData.website ? `<br><a href="${eventData.website}" target="_blank">${eventData.website}</a>` : "";
+        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
+        const teamStatsList = [];
 
-        const oprRes = await fetch(`https://api.ftcscout.org/rest/v1/events/${eventKey}/opr`);
-        const oprData = await oprRes.json();
+        for (const team of teams) {
+          const teamNumber = team.teamNumber;
 
-        const allTeams = new Set(Object.keys(oprData["tot"] || {}));
-        ["auto", "tele", "end", "avg"].forEach(k => {
-          if (oprData[k]) Object.keys(oprData[k]).forEach(t => allTeams.add(t));
-        });
-
-        const teams = Array.from(allTeams);
-        const processed = [];
-
-        for (let i = 0; i < teams.length; i++) {
-          const team = teams[i];
-          progress.innerText = `Processing ${i+1} / ${teams.length} Teams\nCurrently processing ${team}`;
-
+          let name = "Unknown";
           try {
-            const res = await fetch(`https://api.ftcscout.org/rest/v1/teams/${team}`);
-            const { name } = await res.json();
-            const row = document.createElement("tr");
+            const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
+            name = teamDetails?.name || "Unknown";
+          } catch {}
 
-            const ranking = {
-              tot: oprData.tot?.[team]?.rank,
-              auto: oprData.auto?.[team]?.rank,
-              tele: oprData.tele?.[team]?.rank,
-              end: oprData.end?.[team]?.rank,
-              avg: oprData.avg?.[team]?.rank
-            };
+          let stats = {};
+          try {
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
+          } catch {}
 
-            const scores = {
-              tot: oprData.tot?.[team]?.opr,
-              auto: oprData.auto?.[team]?.opr,
-              tele: oprData.tele?.[team]?.opr,
-              end: oprData.end?.[team]?.opr,
-              avg: oprData.avg?.[team]?.opr
-            };
+          const categories = ['tot', 'auto', 'dc', 'eg'];
+          const teamData = { teamNumber, name, values: {}, hasData: false };
 
-            const teamRank = ranking[statType];
-            const rankCell = document.createElement("td");
-            rankCell.innerText = teamRank ? suffix(teamRank) : "-";
-            row.appendChild(rankCell);
-
-            const teamCell = document.createElement("td");
-            teamCell.innerHTML = `<a href="https://ftcscout.org/teams/${team}" target="_blank">#${team} - ${name}</a>`;
-            row.appendChild(teamCell);
-
-            ["tot", "auto", "tele", "avg"].forEach(k => {
-              const cell = document.createElement("td");
-              if (scores[k] != null) {
-                cell.innerText = `${scores[k].toFixed(2)} (${suffix(ranking[k])})`;
-                if (k === statType) cell.classList.add("highlight");
-              } else {
-                cell.innerText = "No Statistics Available";
-              }
-              row.appendChild(cell);
-            });
-
-            const eventCell = document.createElement("td");
-            eventCell.innerHTML = `${eventData.name}<div class="event-details">${dateStr}<br>${locationLink}${websiteLink}</div>`;
-            row.appendChild(eventCell);
-
-            processed.push({ rank: teamRank ?? Infinity, row });
-          } catch {
-            // skip on error
+          for (const cat of categories) {
+            const value = stats[cat]?.value;
+            const rank = stats[cat]?.rank;
+            if (typeof value === 'number' && typeof rank === 'number') {
+              teamData.values[cat] = `${value.toFixed(2)} (${rank})`;
+              teamData.hasData = true;
+            } else {
+              teamData.values[cat] = "No Statistics Available";
+            }
           }
+
+          teamStatsList.push(teamData);
         }
 
-        processed.sort((a, b) => a.rank - b.rank);
-        processed.forEach(t => tbody.appendChild(t.row));
-        progress.innerText = `Total Teams Scouted: ${teams.length}`;
-        table.style.display = "table";
+        // Sort by selected stat, valid teams first
+        teamStatsList.sort((a, b) => {
+          const aValid = a.values[sortBy] !== "No Statistics Available";
+          const bValid = b.values[sortBy] !== "No Statistics Available";
+          if (aValid && bValid) {
+            const aNum = parseFloat(a.values[sortBy]);
+            const bNum = parseFloat(b.values[sortBy]);
+            return bNum - aNum;
+          }
+          return aValid ? -1 : bValid ? 1 : 0;
+        });
+
+        const tbody = document.querySelector('#rankings tbody');
+        tbody.innerHTML = "";
+
+        teamStatsList.forEach((team, i) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${i + 1}</td>
+            <td>
+              <a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">
+                #${team.teamNumber} - ${team.name}
+              </a>
+            </td>
+            <td>${team.values['tot']}</td>
+            <td>${team.values['auto']}</td>
+            <td>${team.values['dc']}</td>
+            <td>${team.values['eg']}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
+
       } catch (error) {
-        title.innerText = "FTC OPR Rankings";
-        progress.innerText = `Error: ${error.message}`;
+        alert("Failed to load data. Check event code/year.");
+        console.error(error);
       }
     }
   </script>
+
 </body>
 </html>
