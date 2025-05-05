@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>FTC Event Scouting</title>
-  <style id="theme-style">
+  <style>
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -16,7 +16,6 @@
     h1 {
       font-size: 30px;
       margin-top: 20px;
-      color: #ffffff;
     }
 
     .info {
@@ -146,7 +145,7 @@
 
     function toggleTheme() {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      location.reload(); // resets to original theme on toggle
+      location.reload(); // refresh to apply theme change
     }
 
     function formatDate(dateStr) {
@@ -176,11 +175,14 @@
       const code = document.getElementById('eventCode').value.trim();
       const year = document.getElementById('year').value.trim();
       const sortBy = document.getElementById('sortBy').value;
+      const tbody = document.querySelector('#rankings tbody');
+      const loadingDiv = document.getElementById("loading");
 
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      const loadingDiv = document.getElementById("loading");
+      tbody.innerHTML = ""; // Clear table rows
+
       loadingDiv.textContent = "Loading event details...";
 
       try {
@@ -200,7 +202,7 @@
         `;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
-        const teamStatsList = [];
+        const rows = [];
 
         for (let i = 0; i < teams.length; i++) {
           const team = teams[i];
@@ -220,54 +222,54 @@
             stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
           } catch {}
 
-          const teamData = { teamNumber, name, location, values: {}, ranks: {}, hasData: false };
-          const categories = ['tot', 'auto', 'dc', 'eg'];
+          const values = {}, ranks = {}, categories = ['tot', 'auto', 'dc', 'eg'];
+          let hasData = false;
 
           for (const cat of categories) {
             const value = stats[cat]?.value;
             const rank = stats[cat]?.rank;
             if (typeof value === 'number' && typeof rank === 'number') {
-              teamData.values[cat] = `${value.toFixed(2)} (${toOrdinal(rank)})`;
-              teamData.ranks[cat] = rank;
-              teamData.hasData = true;
+              values[cat] = `${value.toFixed(2)} (${toOrdinal(rank)})`;
+              ranks[cat] = rank;
+              hasData = true;
             } else {
-              teamData.values[cat] = "No Statistics Available";
+              values[cat] = "No Statistics Available";
             }
           }
 
-          teamStatsList.push(teamData);
+          const row = {
+            teamNumber,
+            name,
+            location,
+            values,
+            ranks,
+            sortValue: typeof stats[sortBy]?.value === 'number' ? stats[sortBy].value : -Infinity
+          };
+
+          // Insert in sorted order
+          const insertIndex = rows.findIndex(r => r.sortValue < row.sortValue);
+          if (insertIndex === -1) rows.push(row);
+          else rows.splice(insertIndex, 0, row);
+
+          // Re-render table
+          tbody.innerHTML = "";
+          rows.forEach((t, index) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${index + 1}</td>
+              <td><a href="https://ftcscout.org/teams/${t.teamNumber}" target="_blank">#${t.teamNumber} - ${t.name}</a></td>
+              <td>${t.location}</td>
+              <td class="${rankClass(t.ranks.tot) || ''}">${t.values.tot}</td>
+              <td class="${rankClass(t.ranks.auto) || ''}">${t.values.auto}</td>
+              <td class="${rankClass(t.ranks.dc) || ''}">${t.values.dc}</td>
+              <td class="${rankClass(t.ranks.eg) || ''}">${t.values.eg}</td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
 
-        teamStatsList.sort((a, b) => {
-          const aValid = a.values[sortBy] !== "No Statistics Available";
-          const bValid = b.values[sortBy] !== "No Statistics Available";
-          if (aValid && bValid) {
-            const aNum = parseFloat(a.values[sortBy]);
-            const bNum = parseFloat(b.values[sortBy]);
-            return bNum - aNum;
-          }
-          return aValid ? -1 : bValid ? 1 : 0;
-        });
-
-        const tbody = document.querySelector('#rankings tbody');
-        tbody.innerHTML = "";
-
-        teamStatsList.forEach((team, i) => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${i + 1}</td>
-            <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
-            <td>${team.location}</td>
-            <td class="${rankClass(team.ranks['tot']) || ''}">${team.values['tot']}</td>
-            <td class="${rankClass(team.ranks['auto']) || ''}">${team.values['auto']}</td>
-            <td class="${rankClass(team.ranks['dc']) || ''}">${team.values['dc']}</td>
-            <td class="${rankClass(team.ranks['eg']) || ''}">${team.values['eg']}</td>
-          `;
-          tbody.appendChild(row);
-        });
-
-        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
         loadingDiv.textContent = "";
+        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${rows.length}`;
       } catch (error) {
         alert("Failed to load data. Check event code/year.");
         console.error(error);
