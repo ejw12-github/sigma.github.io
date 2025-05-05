@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>FTC Event Scouting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
     body {
       background-color: #121212;
       color: #e0e0e0;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Inter', sans-serif;
       text-align: center;
       margin: 0;
       padding: 0;
@@ -110,8 +111,8 @@
   <div class="info" id="event-info"></div>
 
   <div class="input-container">
-    <input type="text" id="eventCode" placeholder="Enter event code">
-    <input type="text" id="year" placeholder="Enter year">
+    <input type="text" id="eventCode" placeholder="Enter event code (e.g., OCHOA)">
+    <input type="text" id="year" placeholder="Enter year (e.g., 2024)">
     <select id="sortBy">
       <option value="tot">Total OPR</option>
       <option value="auto">Auto OPR</option>
@@ -171,6 +172,15 @@
       return await res.json();
     }
 
+    function formatLocation(city, state, country) {
+      const cleanCity = city?.trim();
+      const cleanState = state?.trim();
+      if ((!cleanCity && !cleanState) && country === "Independent") {
+        return "Independent";
+      }
+      return `${cleanCity || "?"}, ${cleanState || "?"}, ${country || "?"}`;
+    }
+
     async function loadData() {
       const code = document.getElementById('eventCode').value.trim();
       const year = document.getElementById('year').value.trim();
@@ -181,8 +191,7 @@
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      tbody.innerHTML = ""; // Clear table rows
-
+      tbody.innerHTML = ""; // Clear table
       loadingDiv.textContent = "Loading event details...";
 
       try {
@@ -207,14 +216,14 @@
         for (let i = 0; i < teams.length; i++) {
           const team = teams[i];
           const teamNumber = team.teamNumber;
-          loadingDiv.textContent = `Processing team ${i + 1} / ${teams.length}...`;
+          const percent = Math.round(((i + 1) / teams.length) * 100);
+          loadingDiv.textContent = `Processing team ${i + 1}/${teams.length} (${percent}%)...`;
 
-          let name = "Unknown";
-          let location = "Unknown";
+          let name = "Unknown", location = "Unknown";
           try {
             const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
             name = teamDetails?.name || "Unknown";
-            location = `${teamDetails?.city || "?"}, ${teamDetails?.state || "?"}, ${teamDetails?.country || "?"}`;
+            location = formatLocation(teamDetails?.city, teamDetails?.state, teamDetails?.country);
           } catch {}
 
           let stats = {};
@@ -223,15 +232,12 @@
           } catch {}
 
           const values = {}, ranks = {}, categories = ['tot', 'auto', 'dc', 'eg'];
-          let hasData = false;
-
           for (const cat of categories) {
             const value = stats[cat]?.value;
             const rank = stats[cat]?.rank;
             if (typeof value === 'number' && typeof rank === 'number') {
               values[cat] = `${value.toFixed(2)} (${toOrdinal(rank)})`;
               ranks[cat] = rank;
-              hasData = true;
             } else {
               values[cat] = "No Statistics Available";
             }
@@ -246,12 +252,10 @@
             sortValue: typeof stats[sortBy]?.value === 'number' ? stats[sortBy].value : -Infinity
           };
 
-          // Insert in sorted order
           const insertIndex = rows.findIndex(r => r.sortValue < row.sortValue);
           if (insertIndex === -1) rows.push(row);
           else rows.splice(insertIndex, 0, row);
 
-          // Re-render table
           tbody.innerHTML = "";
           rows.forEach((t, index) => {
             const tr = document.createElement("tr");
