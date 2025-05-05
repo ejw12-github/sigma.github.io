@@ -48,14 +48,33 @@
     table {
       width: 90%;
       margin: 20px auto;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       background-color: #1e1e1e;
+      border-radius: 12px;
+      overflow: hidden;
     }
 
     th, td {
       padding: 10px;
       border: 1px solid #333;
       text-align: center;
+    }
+
+    th:first-child {
+      border-top-left-radius: 12px;
+    }
+
+    th:last-child {
+      border-top-right-radius: 12px;
+    }
+
+    tr:last-child td:first-child {
+      border-bottom-left-radius: 12px;
+    }
+
+    tr:last-child td:last-child {
+      border-bottom-right-radius: 12px;
     }
 
     th {
@@ -108,21 +127,23 @@
       transform: translateX(-50%);
       background: #2a2a2a;
       color: #e0e0e0;
-      padding: 20px;
+      padding: 12px 20px;
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
       display: none;
       z-index: 999;
+      white-space: nowrap;
     }
 
     #popup button {
-      margin-top: 10px;
+      margin-left: 20px;
       background-color: #bb86fc;
       border: none;
-      padding: 10px 20px;
+      padding: 8px 16px;
       border-radius: 8px;
       color: white;
       cursor: pointer;
+      font-family: 'Inter', sans-serif;
     }
   </style>
 </head>
@@ -170,8 +191,8 @@
   <div id="footer">Powered by FTCScout API</div>
 
   <div id="popup">
-    <div id="popup-text"></div>
-    <button onclick="document.getElementById('popup').style.display='none'">Dismiss</button>
+    <span id="popup-text">Finished scouting.</span>
+    <button onclick="dismissPopup()">Dismiss</button>
   </div>
 
   <script>
@@ -220,6 +241,10 @@
       return '';
     }
 
+    function dismissPopup() {
+      document.getElementById("popup").style.display = "none";
+    }
+
     async function fetchJSON(url) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
@@ -227,6 +252,8 @@
     }
 
     async function loadData() {
+      dismissPopup(); // Hide popup if active
+
       const code = document.getElementById('eventCode').value.trim();
       const year = document.getElementById('year').value;
       const sortBy = document.getElementById('sortBy').value;
@@ -315,7 +342,6 @@
         document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
         loadingDiv.textContent = "";
 
-        // Show popup
         const popup = document.getElementById("popup");
         document.getElementById("popup-text").textContent = `Finished scouting ${event.name}`;
         popup.style.display = "block";
