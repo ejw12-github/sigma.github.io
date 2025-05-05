@@ -1,10 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>FTC OPR Rankings</title>
   <style id="theme-style">
-    /* Dark Theme (default) */
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -74,27 +74,21 @@
       text-decoration: underline;
     }
 
-    .loading {
-      color: #bb86fc;
-      font-style: italic;
-    }
-
     #footer {
       margin-top: 30px;
       font-size: 14px;
       color: #888;
     }
 
+    #loading {
+      color: #bb86fc;
+      margin-top: 10px;
+    }
+
     #theme-toggle {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      background: none;
-      border: 1px solid #888;
-      color: inherit;
-      padding: 5px 10px;
-      cursor: pointer;
-      border-radius: 5px;
+      right: 20px;
+      top: 20px;
     }
   </style>
 </head>
@@ -115,6 +109,7 @@
       <option value="eg">Endgame OPR</option>
     </select>
     <button onclick="loadData()">Load Rankings</button>
+    <div id="loading"></div>
   </div>
 
   <table id="rankings">
@@ -132,18 +127,120 @@
   </table>
 
   <div class="info" id="total-teams"></div>
-
   <div id="footer">Powered by FTCScout API</div>
 
   <script>
+    let currentTheme = 'dark';
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      applyTheme(currentTheme);
+    }
+
+    function applyTheme(theme) {
+      const styleTag = document.getElementById('theme-style');
+      if (theme === 'light') {
+        styleTag.innerHTML = `
+          body {
+            background-color: #f0f0f0;
+            color: #111;
+            font-family: 'Segoe UI', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+          }
+
+          h1 {
+            font-size: 30px;
+            margin-top: 20px;
+            color: #000;
+          }
+
+          .info {
+            margin: 5px 0 15px;
+            font-size: 16px;
+            color: #333;
+          }
+
+          .input-container {
+            margin: 20px 0;
+          }
+
+          input, select, button {
+            padding: 10px;
+            margin: 5px;
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+          }
+
+          table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            color: #000;
+          }
+
+          th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+          }
+
+          th {
+            background-color: #e0e0e0;
+          }
+
+          tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+
+          .highlight {
+            color: #7b1fa2;
+            font-weight: bold;
+          }
+
+          a {
+            color: #2a5db0;
+          }
+
+          a:hover {
+            text-decoration: underline;
+          }
+
+          #footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #444;
+          }
+
+          #loading {
+            color: #7b1fa2;
+            margin-top: 10px;
+          }
+
+          #theme-toggle {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+          }
+        `;
+      } else {
+        // default dark theme (already written above)
+        location.reload(); // reload to apply initial dark mode styles
+      }
+    }
+
     function formatDate(dateStr) {
       const [year, month, day] = dateStr.split("-");
       return `${month}/${day}/${year}`;
     }
 
     function toOrdinal(n) {
-      const s = ["th", "st", "nd", "rd"];
-      const v = n % 100;
+      const s = ["th", "st", "nd", "rd"], v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
@@ -161,8 +258,8 @@
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      const infoDiv = document.getElementById("event-info");
-      infoDiv.innerHTML = `<span class="loading">Loading event info...</span>`;
+      const loadingDiv = document.getElementById("loading");
+      loadingDiv.textContent = "Loading event details...";
 
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
@@ -171,13 +268,13 @@
         const locationStr = `${event.venue ?? ""}, ${event.address ?? ""}, ${event.city}, ${event.state}, ${event.country}`;
         const googleMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`;
         const stream = event.streamURL ? `<a href="${event.streamURL}" target="_blank">Watch Livestream</a> | ` : '';
+        const website = event.website ? `<br><a href="${event.website}" target="_blank">${event.website}</a>` : '';
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        infoDiv.innerHTML = `
+        document.getElementById("event-info").innerHTML = `
           ${stream}
-          <a href="${googleMaps}" target="_blank">${locationStr}</a><br>
-          ${start} - ${end}<br>
-          <span id="loading-status" class="loading">Loading teams...</span>
+          <a href="${googleMaps}" target="_blank">${event.address}</a><br>
+          ${start} - ${end}${website}
         `;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
@@ -187,7 +284,7 @@
           const team = teams[i];
           const teamNumber = team.teamNumber;
 
-          document.getElementById("loading-status").textContent = `Loading... Processed ${i + 1} of ${teams.length} teams`;
+          loadingDiv.textContent = `Processing team ${i + 1} / ${teams.length}...`;
 
           let name = "Unknown";
           try {
@@ -248,57 +345,13 @@
           tbody.appendChild(row);
         });
 
-        document.getElementById("loading-status").remove();
         document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
-
+        loadingDiv.textContent = "";
       } catch (error) {
         alert("Failed to load data. Check event code/year.");
         console.error(error);
+        loadingDiv.textContent = "";
       }
-    }
-
-    function toggleTheme() {
-      const currentTheme = localStorage.getItem('theme') || 'dark';
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('theme', newTheme);
-      applyTheme(newTheme);
-    }
-
-    function applyTheme(theme) {
-      const styleTag = document.getElementById('theme-style');
-      if (theme === 'light') {
-        styleTag.innerHTML = `
-          body { background-color: #f5f5f5; color: #222; }
-          h1 { color: #111; }
-          .info { color: #444; }
-          input, select, button {
-            background-color: #fff;
-            color: #000;
-            border: 1px solid #aaa;
-          }
-          table {
-            background-color: #fff;
-            color: #000;
-          }
-          th {
-            background-color: #e0e0e0;
-          }
-          tr:nth-child(even) {
-            background-color: #f0f0f0;
-          }
-          .highlight { color: #7e22ce; }
-          a { color: #1a0dab; }
-          .loading { color: #bb86fc; }
-          #footer { color: #555; }
-        `;
-      } else {
-        styleTag.innerHTML = document.currentScript.previousElementSibling.innerHTML;
-      }
-    }
-
-    window.onload = () => {
-      const savedTheme = localStorage.getItem('theme') || 'dark';
-      applyTheme(savedTheme);
     }
   </script>
 
