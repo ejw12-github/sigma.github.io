@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>FTC OPR Rankings</title>
-  <style>
+  <style id="theme-style">
+    /* Dark Theme (default) */
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -73,19 +74,33 @@
       text-decoration: underline;
     }
 
+    .loading {
+      color: #bb86fc;
+      font-style: italic;
+    }
+
     #footer {
       margin-top: 30px;
       font-size: 14px;
       color: #888;
     }
 
-    .loading {
-      color: lightgreen;
-      font-style: italic;
+    #theme-toggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: 1px solid #888;
+      color: inherit;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
+
+  <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
 
   <h1 id="event-title">FTC OPR Rankings</h1>
   <div class="info" id="event-info"></div>
@@ -147,8 +162,7 @@
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
       const infoDiv = document.getElementById("event-info");
-      infoDiv.style.color = "lightgreen";
-      infoDiv.innerHTML = "Loading event info...";
+      infoDiv.innerHTML = `<span class="loading">Loading event info...</span>`;
 
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
@@ -203,7 +217,6 @@
           teamStatsList.push(teamData);
         }
 
-        // Sort by selected stat, valid teams first
         teamStatsList.sort((a, b) => {
           const aValid = a.values[sortBy] !== "No Statistics Available";
           const bValid = b.values[sortBy] !== "No Statistics Available";
@@ -242,6 +255,50 @@
         alert("Failed to load data. Check event code/year.");
         console.error(error);
       }
+    }
+
+    function toggleTheme() {
+      const currentTheme = localStorage.getItem('theme') || 'dark';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', newTheme);
+      applyTheme(newTheme);
+    }
+
+    function applyTheme(theme) {
+      const styleTag = document.getElementById('theme-style');
+      if (theme === 'light') {
+        styleTag.innerHTML = `
+          body { background-color: #f5f5f5; color: #222; }
+          h1 { color: #111; }
+          .info { color: #444; }
+          input, select, button {
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #aaa;
+          }
+          table {
+            background-color: #fff;
+            color: #000;
+          }
+          th {
+            background-color: #e0e0e0;
+          }
+          tr:nth-child(even) {
+            background-color: #f0f0f0;
+          }
+          .highlight { color: #7e22ce; }
+          a { color: #1a0dab; }
+          .loading { color: #bb86fc; }
+          #footer { color: #555; }
+        `;
+      } else {
+        styleTag.innerHTML = document.currentScript.previousElementSibling.innerHTML;
+      }
+    }
+
+    window.onload = () => {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      applyTheme(savedTheme);
     }
   </script>
 
