@@ -3,27 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <title>FTC Event Scouting</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style id="theme-style">
-    :root {
-      --purple: #bb86fc;
-      --green: #4caf50;
-      --yellow: #ffeb3b;
-      --orange: #ff9800;
-    }
-
     body {
-      font-family: 'Inter', sans-serif;
       background-color: #121212;
       color: #e0e0e0;
+      font-family: 'Inter', sans-serif;
+      text-align: center;
       margin: 0;
       padding: 0;
-      text-align: center;
     }
 
     h1 {
-      margin-top: 20px;
       font-size: 30px;
+      margin-top: 20px;
       color: #ffffff;
     }
 
@@ -40,19 +33,16 @@
     input, select, button {
       padding: 10px;
       margin: 5px;
-      border: 1px solid #333;
-      border-radius: 5px;
       background-color: #1e1e1e;
       color: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 5px;
+      text-align: center;
       font-family: 'Inter', sans-serif;
     }
 
     input::placeholder {
       text-align: center;
-    }
-
-    select {
-      text-align-last: center;
     }
 
     table {
@@ -77,13 +67,13 @@
     }
 
     .highlight {
-      color: var(--purple);
+      color: #bb86fc;
       font-weight: bold;
     }
 
-    .green { color: var(--green); font-weight: bold; }
-    .yellow { color: var(--yellow); font-weight: bold; }
-    .orange { color: var(--orange); font-weight: bold; }
+    .green { color: #4caf50; font-weight: bold; }
+    .yellow { color: #ffeb3b; font-weight: bold; }
+    .orange { color: #ff9800; font-weight: bold; }
 
     a {
       color: #9cd1ff;
@@ -94,8 +84,14 @@
       text-decoration: underline;
     }
 
+    #footer {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #888;
+    }
+
     #loading {
-      color: var(--purple);
+      color: #bb86fc;
       margin-top: 10px;
     }
 
@@ -108,35 +104,35 @@
     #popup {
       position: fixed;
       bottom: 30px;
-      right: 30px;
-      background-color: #2a2a2a;
-      color: white;
-      padding: 15px 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      color: #e0e0e0;
+      padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 0 10px #000;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
       display: none;
+      z-index: 999;
     }
 
     #popup button {
-      background-color: var(--purple);
-      color: white;
-      border: none;
-      padding: 8px 14px;
       margin-top: 10px;
-      border-radius: 5px;
+      background-color: #bb86fc;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: white;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-
   <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-
   <h1 id="event-title">FTC OPR Rankings</h1>
   <div class="info" id="event-info"></div>
 
   <div class="input-container">
-    <input type="text" id="eventCode" placeholder="Enter event code" />
+    <input type="text" id="eventCode" placeholder="Enter event code">
     <select id="year">
       <option value="2024">2024 - Into the Deep</option>
       <option value="2023">2023 - Centerstage</option>
@@ -171,6 +167,8 @@
   </table>
 
   <div class="info" id="total-teams"></div>
+  <div id="footer">Powered by FTCScout API</div>
+
   <div id="popup">
     <div id="popup-text"></div>
     <button onclick="document.getElementById('popup').style.display='none'">Dismiss</button>
@@ -180,20 +178,23 @@
     let currentTheme = 'dark';
 
     function toggleTheme() {
-      const themeStyle = document.getElementById('theme-style');
-      if (currentTheme === 'dark') {
-        currentTheme = 'light';
-        themeStyle.innerHTML = themeStyle.innerHTML.replace(/#121212/g, '#f0f0f0')
-          .replace(/#1e1e1e/g, '#ffffff')
-          .replace(/#292929/g, '#e0e0e0')
-          .replace(/#1b1b1b/g, '#f9f9f9')
-          .replace(/#e0e0e0/g, '#111')
-          .replace(/#ffffff/g, '#000')
-          .replace(/#cccccc/g, '#333')
-          .replace(/#333/g, '#ccc');
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      applyTheme(currentTheme);
+    }
+
+    function applyTheme(theme) {
+      const styleTag = document.getElementById('theme-style');
+      if (theme === 'light') {
+        styleTag.innerHTML = styleTag.innerHTML.replace(/#121212/g, "#f0f0f0")
+          .replace(/#e0e0e0/g, "#111")
+          .replace(/#1e1e1e/g, "#ffffff")
+          .replace(/#333/g, "#ccc")
+          .replace(/#292929/g, "#e0e0e0")
+          .replace(/#1b1b1b/g, "#f9f9f9")
+          .replace(/#bb86fc/g, "#7b1fa2")
+          .replace(/#9cd1ff/g, "#2a5db0");
       } else {
-        currentTheme = 'dark';
-        location.reload(); // fallback for full dark mode reset
+        location.reload();
       }
     }
 
@@ -207,22 +208,27 @@
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
+    function extractOPRValue(oprString) {
+      const match = oprString?.match(/^([\d.]+)/);
+      return match ? parseFloat(match[1]) : -Infinity;
+    }
+
+    function getColorClass(rank) {
+      if (rank <= 100) return 'green';
+      if (rank <= 250) return 'yellow';
+      if (rank <= 500) return 'orange';
+      return '';
+    }
+
     async function fetchJSON(url) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return await res.json();
     }
 
-    function formatLocation(team) {
-      if ((!team.city && !team.state) && team.country === "Independent") {
-        return "Independent";
-      }
-      return `${team.city ?? ""}, ${team.state ?? ""}, ${team.country ?? ""}`.replace(/^, |, ,/g, "").trim();
-    }
-
     async function loadData() {
       const code = document.getElementById('eventCode').value.trim();
-      const year = document.getElementById('year').value.trim();
+      const year = document.getElementById('year').value;
       const sortBy = document.getElementById('sortBy').value;
 
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
@@ -230,6 +236,7 @@
 
       const loadingDiv = document.getElementById("loading");
       loadingDiv.textContent = "Loading event details...";
+
       const tbody = document.querySelector('#rankings tbody');
       tbody.innerHTML = "";
 
@@ -237,62 +244,81 @@
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
         const start = formatDate(event.start);
         const end = formatDate(event.end);
-        const fullAddress = `${event.venue} - ${event.address} (${event.city}, ${event.state}, ${event.country})`;
+        const locationStr = `${event.venue ?? ""} - ${event.address ?? ""} (${event.city}, ${event.state}, ${event.country})`;
+        const googleMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`;
+        const stream = event.streamURL ? `<a href="${event.streamURL}" target="_blank">Watch Livestream</a> | ` : '';
+        const website = event.website ? `<br><a href="${event.website}" target="_blank">${event.website}</a>` : '';
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        document.getElementById("event-info").innerHTML = `
-          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}" target="_blank">${fullAddress}</a><br>
-          ${start} - ${end}
-        `;
+        document.getElementById("event-info").innerHTML = `${stream}<a href="${googleMaps}" target="_blank">${locationStr}</a><br>${start} - ${end}${website}`;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
-        let processed = 0;
+        const teamStatsList = [];
 
-        for (const team of teams) {
-          processed++;
-          const percent = Math.round((processed / teams.length) * 100);
-          loadingDiv.textContent = `Processing team ${processed}/${teams.length} (${percent}%) ...`;
+        for (let i = 0; i < teams.length; i++) {
+          const team = teams[i];
+          const teamNumber = team.teamNumber;
 
-          let name = "Unknown", stats = {}, location = formatLocation(team);
+          const percent = Math.round(((i + 1) / teams.length) * 100);
+          loadingDiv.textContent = `Processing team ${i + 1}/${teams.length} (${percent}%) ...`;
 
+          let name = "Unknown", city = "", state = "", country = "";
           try {
-            const details = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/`);
-            name = details?.name ?? "Unknown";
-            location = formatLocation(details);
+            const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
+            name = teamDetails?.name || "Unknown";
+            city = teamDetails?.city || "";
+            state = teamDetails?.state || "";
+            country = teamDetails?.country || "";
           } catch {}
 
+          const location = (city === "" && state === "" && country === "Independent")
+            ? "Independent"
+            : `${city}, ${state}, ${country}`;
+
+          let stats = {};
           try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
           } catch {}
 
-          const row = document.createElement("tr");
-          const cells = [];
-          cells.push(`<td>${processed}</td>`);
-          cells.push(`<td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${name}</a></td>`);
-          cells.push(`<td>${location}</td>`);
-
-          for (const cat of ['tot', 'auto', 'dc', 'eg']) {
+          const values = {};
+          const categories = ['tot', 'auto', 'dc', 'eg'];
+          categories.forEach(cat => {
             const val = stats[cat]?.value;
             const rank = stats[cat]?.rank;
-            let className = "", text = "No Statistics Available";
-
-            if (typeof val === "number" && typeof rank === "number") {
-              if (rank <= 100) className = "green";
-              else if (rank <= 250) className = "yellow";
-              else if (rank <= 500) className = "orange";
-              text = `${val.toFixed(2)} (${toOrdinal(rank)})`;
+            if (val !== undefined && rank !== undefined) {
+              const rankClass = getColorClass(rank);
+              values[cat] = `<span class="${rankClass}">${val.toFixed(2)} (${toOrdinal(rank)})</span>`;
+            } else {
+              values[cat] = "No Statistics Available";
             }
-            cells.push(`<td class="${className}">${text}</td>`);
-          }
+          });
 
-          row.innerHTML = cells.join("");
-          tbody.appendChild(row);
+          teamStatsList.push({ teamNumber, name, location, values });
         }
 
-        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teams.length}`;
-        document.getElementById("popup-text").textContent = `Finished scouting ${event.name}`;
-        document.getElementById("popup").style.display = "block";
+        teamStatsList.sort((a, b) => extractOPRValue(b.values[sortBy]) - extractOPRValue(a.values[sortBy]));
+
+        teamStatsList.forEach((team, i) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${i + 1}</td>
+            <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
+            <td>${team.location}</td>
+            <td>${team.values['tot']}</td>
+            <td>${team.values['auto']}</td>
+            <td>${team.values['dc']}</td>
+            <td>${team.values['eg']}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        document.getElementById("total-teams").textContent = `Total Teams Scouted: ${teamStatsList.length}`;
         loadingDiv.textContent = "";
+
+        // Show popup
+        const popup = document.getElementById("popup");
+        document.getElementById("popup-text").textContent = `Finished scouting ${event.name}`;
+        popup.style.display = "block";
 
       } catch (error) {
         alert("Failed to load data. Check event code/year.");
@@ -301,6 +327,5 @@
       }
     }
   </script>
-
 </body>
 </html>
