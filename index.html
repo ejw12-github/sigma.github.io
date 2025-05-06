@@ -1,15 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
-  <style id="theme-style">
+  <style>
     :root {
       font-family: 'Inter', sans-serif;
     }
-
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -17,26 +15,21 @@
       padding: 0;
       text-align: center;
     }
-
     h1 {
       font-size: 30px;
       margin-top: 20px;
     }
-
     .info {
       margin: 5px 0 15px;
       font-size: 16px;
       color: #ccc;
     }
-
     .input-container {
       margin: 20px 0;
     }
-
     input::placeholder {
       text-align: center;
     }
-
     input, select, button {
       padding: 10px;
       margin: 5px;
@@ -47,7 +40,6 @@
       text-align: center;
       font-family: 'Inter', sans-serif;
     }
-
     table {
       width: 90%;
       margin: 20px auto;
@@ -56,46 +48,37 @@
       border-radius: 10px;
       overflow: hidden;
     }
-
     th, td {
       padding: 10px;
       border: 1px solid #333;
       text-align: center;
     }
-
     th {
       background-color: #292929;
     }
-
     tr:nth-child(even) {
       background-color: #1b1b1b;
     }
-
     .highlight {
       color: #bb86fc;
       font-weight: bold;
     }
-
     a {
       color: #9cd1ff;
       text-decoration: none;
     }
-
     a:hover {
       text-decoration: underline;
     }
-
     #loading {
       color: #bb86fc;
       margin-top: 10px;
     }
-
     #theme-toggle {
       position: absolute;
       right: 20px;
       top: 20px;
     }
-
     .popup-container {
       position: fixed;
       top: 20px;
@@ -107,7 +90,6 @@
       gap: 10px;
       z-index: 9999;
     }
-
     .popup {
       background-color: #1e1e1e;
       color: white;
@@ -119,12 +101,10 @@
       justify-content: space-between;
       min-width: 300px;
     }
-
     .popup span {
       flex: 1;
       text-align: center;
     }
-
     .popup button {
       background-color: #bb86fc;
       border: none;
@@ -134,23 +114,19 @@
       padding: 5px 10px;
       cursor: pointer;
     }
-
     #footer {
       margin-top: 30px;
       font-size: 14px;
       color: #888;
     }
-
     .rank-green {
-      color: #00e676;
+      background-color: #2e7d32;
     }
-
     .rank-yellow {
-      color: #ffeb3b;
+      background-color: #fdd835;
     }
-
     .rank-orange {
-      color: #ff9800;
+      background-color: #fb8c00;
     }
   </style>
 </head>
@@ -202,7 +178,8 @@
   <script>
     let currentTheme = 'dark';
     let cachedData = null;
-    let lastEventKey = "";
+    let lastKey = "";
+    let abortController = null;
 
     function toggleTheme() {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -210,154 +187,133 @@
       document.body.style.color = currentTheme === 'dark' ? '#e0e0e0' : '#111';
     }
 
-    function formatDate(dateStr) {
-      const [year, month, day] = dateStr.split("-");
-      return `${month}/${day}/${year}`;
-    }
-
-    function toOrdinal(n) {
-      const s = ["th", "st", "nd", "rd"], v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    }
-
     function addPopup(message) {
       const container = document.getElementById("popup-container");
       const popup = document.createElement("div");
       popup.className = "popup";
-      popup.innerHTML = `
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">Dismiss</button>
-      `;
+      popup.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">Dismiss</button>`;
       container.appendChild(popup);
-      while (container.childElementCount > 5) {
-        container.removeChild(container.firstChild);
-      }
+      if (container.children.length > 5) container.firstChild.remove();
     }
 
-    async function fetchJSON(url) {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      return await res.json();
+    async function fetchJSON(url, signal) {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      return res.json();
     }
 
     async function loadData() {
-      const code = document.getElementById('eventCode').value.trim();
-      const year = document.getElementById('year').value.trim();
-      const sortBy = document.getElementById('sortBy').value;
+      const code = document.getElementById("eventCode").value.trim();
+      const year = document.getElementById("year").value;
+      const sortBy = document.getElementById("sortBy").value;
       const key = `${code}_${year}`;
 
+      const loading = document.getElementById("loading");
+      const tbody = document.querySelector("#rankings tbody");
+      tbody.innerHTML = "";
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      const loadingDiv = document.getElementById("loading");
-      loadingDiv.textContent = "";
+      if (abortController) {
+        abortController.abort();
+        addPopup(`Cancelled scouting for previous event`);
+      }
 
-      const tbody = document.querySelector('#rankings tbody');
-      tbody.innerHTML = "";
+      abortController = new AbortController();
+      const { signal } = abortController;
 
-      if (cachedData && lastEventKey === key) {
+      if (cachedData && key === lastKey) {
         renderTable(cachedData, sortBy);
         return;
       }
 
-      loadingDiv.textContent = "Loading event details...";
-
+      loading.textContent = "Loading event...";
       try {
-        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
-        const start = formatDate(event.start);
-        const end = formatDate(event.end);
-        const eventLocation = `${event.venue} - ${event.address} (${event.city}, ${event.state}, ${event.country})`;
+        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
+        const start = new Date(event.start).toLocaleDateString();
+        const end = new Date(event.end).toLocaleDateString();
+        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country === "Independent" ? "Independent" : event.country;
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        document.getElementById("event-info").innerHTML = `${eventLocation}<br>${start} - ${end}`;
+        document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
 
-        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
-        const teamStatsList = [];
+        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
+        const teamData = [];
 
         for (let i = 0; i < teams.length; i++) {
-          const team = teams[i];
-          const teamNumber = team.teamNumber;
+          const teamNumber = teams[i].teamNumber;
+          let name = "Unknown", location = "Unknown";
 
-          let name = "Unknown";
-          let location = "Unknown";
           try {
-            const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
-            name = teamDetails.name || "Unknown";
-
-            const { city, state, country } = teamDetails;
-            location = (city || state) ? `${city ?? ''}, ${state ?? ''}, ${country}` : country === "Independent" ? "Independent" : country;
+            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
+            name = info.name ?? "Unknown";
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country === "Independent" ? "Independent" : info.country;
           } catch {}
 
           let stats = {};
           try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
           } catch {}
 
-          const values = {};
-          const categories = ['tot', 'auto', 'dc', 'eg'];
-          categories.forEach(cat => {
-            const val = stats[cat]?.value;
-            const rank = stats[cat]?.rank;
-            if (typeof val === 'number' && typeof rank === 'number') {
-              values[cat] = { value: val, rank, display: `${val.toFixed(2)} (${toOrdinal(rank)})` };
-            } else {
-              values[cat] = { display: "No Statistics Available" };
-            }
-          });
-
-          teamStatsList.push({ teamNumber, name, location, values });
-          const percent = Math.round(((i + 1) / teams.length) * 100);
-          loadingDiv.textContent = `Processing team ${i + 1}/${teams.length} (${percent}%)...`;
-
-          renderTable(teamStatsList, sortBy);
+          const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
+            const val = stats[key]?.value;
+            const rank = stats[key]?.rank;
+            acc[key] = val !== undefined && rank !== undefined
+              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
+              : { display: "No Data" };
+            return acc;
+          }, {});
+          
+          teamData.push({ teamNumber, name, location, values });
+          renderTable(teamData, sortBy);
+          loading.textContent = `Processing team ${i + 1}/${teams.length} (${Math.round((i + 1) / teams.length * 100)}%)`;
         }
 
-        cachedData = teamStatsList;
-        lastEventKey = key;
-
+        cachedData = teamData;
+        lastKey = key;
+        loading.textContent = "";
         addPopup(`Finished scouting ${event.name}`);
-        loadingDiv.textContent = "";
-      } catch (err) {
-        addPopup("Event not found or error loading.");
-        console.error(err);
-        loadingDiv.textContent = "";
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          addPopup("Event not found or error occurred.");
+          loading.textContent = "";
+        }
       }
     }
 
     function renderTable(data, sortBy) {
-      const tbody = document.querySelector('#rankings tbody');
+      const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
 
       const sorted = [...data].sort((a, b) => {
-        const aVal = a.values[sortBy]?.value;
-        const bVal = b.values[sortBy]?.value;
-        return bVal - aVal;
+        const av = a.values[sortBy]?.value ?? -Infinity;
+        const bv = b.values[sortBy]?.value ?? -Infinity;
+        return bv - av;
       });
 
-      sorted.forEach((team, i) => {
-        const row = document.createElement("tr");
+      sorted.forEach((team, idx) => {
         const val = team.values[sortBy];
-        let className = "";
-
+        let colorClass = "";
         if (val?.rank !== undefined) {
-          if (val.rank <= 100) className = "rank-green";
-          else if (val.rank <= 250) className = "rank-yellow";
-          else if (val.rank <= 500) className = "rank-orange";
+          if (val.rank <= 100) colorClass = "rank-green";
+          else if (val.rank <= 250) colorClass = "rank-yellow";
+          else if (val.rank <= 500) colorClass = "rank-orange";
         }
 
+        const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${i + 1}</td>
+          <td>${idx + 1}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
-          <td class="${className}">${team.values.tot.display}</td>
-          <td class="${className}">${team.values.auto.display}</td>
-          <td class="${className}">${team.values.dc.display}</td>
-          <td class="${className}">${team.values.eg.display}</td>
+          <td class="${sortBy === 'tot' ? colorClass : ''}">${team.values.tot.display}</td>
+          <td class="${sortBy === 'auto' ? colorClass : ''}">${team.values.auto.display}</td>
+          <td class="${sortBy === 'dc' ? colorClass : ''}">${team.values.dc.display}</td>
+          <td class="${sortBy === 'eg' ? colorClass : ''}">${team.values.eg.display}</td>
         `;
         tbody.appendChild(row);
       });
 
-      document.getElementById("total-teams").textContent = `Total Teams Scouted: ${data.length}`;
+      document.getElementById("total-teams").textContent = `Total Teams: ${data.length}`;
     }
   </script>
 </body>
