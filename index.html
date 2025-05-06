@@ -4,11 +4,10 @@
   <meta charset="UTF-8" />
   <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
-  <style id="theme-style">
+  <style>
     :root {
       font-family: 'Inter', sans-serif;
     }
-
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -16,97 +15,42 @@
       padding: 0;
       text-align: center;
     }
-
-    h1 {
-      font-size: 30px;
-      margin-top: 20px;
-    }
-
-    .info {
-      margin: 5px 0 15px;
-      font-size: 16px;
-      color: #ccc;
-    }
-
-    .input-container {
-      margin: 20px 0;
-    }
-
-    input::placeholder {
-      text-align: center;
-    }
-
+    h1 { font-size: 30px; margin-top: 20px; }
+    .info { margin: 5px 0 15px; font-size: 16px; color: #ccc; }
+    .input-container { margin: 20px 0; }
+    input::placeholder { text-align: center; }
     input, select, button {
-      padding: 10px;
-      margin: 5px;
-      background-color: #1e1e1e;
-      color: #e0e0e0;
-      border: 1px solid #333;
-      border-radius: 5px;
+      padding: 10px; margin: 5px;
+      background-color: #1e1e1e; color: #e0e0e0;
+      border: 1px solid #333; border-radius: 5px;
       text-align: center;
       font-family: 'Inter', sans-serif;
     }
-
     table {
-      width: 90%;
-      margin: 20px auto;
+      width: 90%; margin: 20px auto;
       border-collapse: collapse;
       background-color: #1e1e1e;
       border-radius: 10px;
       overflow: hidden;
     }
-
     th, td {
-      padding: 10px;
-      border: 1px solid #333;
+      padding: 10px; border: 1px solid #333;
       text-align: center;
     }
-
-    th {
-      background-color: #292929;
-    }
-
-    tr:nth-child(even) {
-      background-color: #1b1b1b;
-    }
-
-    .highlight {
-      color: #bb86fc;
-      font-weight: bold;
-    }
-
-    a {
-      color: #9cd1ff;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    #loading {
-      color: #bb86fc;
-      margin-top: 10px;
-    }
-
-    #theme-toggle {
-      position: absolute;
-      right: 20px;
-      top: 20px;
-    }
-
+    th { background-color: #292929; }
+    tr:nth-child(even) { background-color: #1b1b1b; }
+    .highlight { color: #bb86fc; font-weight: bold; }
+    a { color: #9cd1ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    #loading { color: #bb86fc; margin-top: 10px; }
+    #theme-toggle { position: absolute; right: 20px; top: 20px; }
     .popup-container {
-      position: fixed;
-      top: 20px;
-      left: 50%;
+      position: fixed; top: 20px; left: 50%;
       transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 10px;
       z-index: 9999;
     }
-
     .popup {
       background-color: #1e1e1e;
       color: white;
@@ -118,12 +62,10 @@
       justify-content: space-between;
       min-width: 300px;
     }
-
     .popup span {
       flex: 1;
       text-align: center;
     }
-
     .popup button {
       background-color: #bb86fc;
       border: none;
@@ -133,30 +75,19 @@
       padding: 5px 10px;
       cursor: pointer;
     }
-
     #footer {
       margin-top: 30px;
       font-size: 14px;
       color: #888;
     }
-
-    .rank-green {
-      color: #00e676;
-    }
-
-    .rank-yellow {
-      color: #ffeb3b;
-    }
-
-    .rank-orange {
-      color: #ff9800;
-    }
+    .rank-green { color: #00e676; }
+    .rank-yellow { color: #ffeb3b; }
+    .rank-orange { color: #ff9800; }
   </style>
 </head>
 <body>
   <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-
-  <h1 id="event-title">FTC Event OPR Rankings</h1>
+  <h1 id="event-title">FTC OPR Rankings</h1>
   <div class="info" id="event-info"></div>
 
   <div class="input-container">
@@ -202,21 +133,12 @@
     let currentTheme = 'dark';
     let cachedData = null;
     let lastEventKey = "";
+    let currentScoutingToken = null;
 
     function toggleTheme() {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
       document.body.style.backgroundColor = currentTheme === 'dark' ? '#121212' : '#f0f0f0';
       document.body.style.color = currentTheme === 'dark' ? '#e0e0e0' : '#111';
-    }
-
-    function formatDate(dateStr) {
-      const [year, month, day] = dateStr.split("-");
-      return `${month}/${day}/${year}`;
-    }
-
-    function toOrdinal(n) {
-      const s = ["th", "st", "nd", "rd"], v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
     function addPopup(message) {
@@ -244,52 +166,55 @@
       const year = document.getElementById('year').value.trim();
       const sortBy = document.getElementById('sortBy').value;
       const key = `${code}_${year}`;
+      const loadingDiv = document.getElementById("loading");
+      const tbody = document.querySelector('#rankings tbody');
+      tbody.innerHTML = "";
+
+      // Cancel previous run
+      if (currentScoutingToken) {
+        addPopup(`Cancelled scouting for ${document.getElementById("event-title").textContent}`);
+      }
+      const myToken = {};
+      currentScoutingToken = myToken;
 
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      const loadingDiv = document.getElementById("loading");
-      loadingDiv.textContent = "";
-
-      const tbody = document.querySelector('#rankings tbody');
-      tbody.innerHTML = "";
+      loadingDiv.textContent = "Loading event details...";
 
       if (cachedData && lastEventKey === key) {
         renderTable(cachedData, sortBy);
         return;
       }
 
-      loadingDiv.textContent = "Loading event details...";
-
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`);
-        const start = formatDate(event.start);
-        const end = formatDate(event.end);
-        const eventLocation = `${event.venue} - ${event.address} (${event.city}, ${event.state}, ${event.country})`;
+        if (currentScoutingToken !== myToken) return;
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        document.getElementById("event-info").innerHTML = `${eventLocation}<br>${start} - ${end}`;
+        document.getElementById("event-info").textContent = `${event.city}, ${event.state}, ${event.country}`;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`);
+        if (currentScoutingToken !== myToken) return;
+
         const teamStatsList = [];
 
         for (let i = 0; i < teams.length; i++) {
+          if (currentScoutingToken !== myToken) return;
+
           const team = teams[i];
-          const teamNumber = team.teamNumber;
-
-          let name = "Unknown";
-          let location = "Unknown";
+          let name = "Unknown", location = "Unknown";
           try {
-            const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/`);
+            const teamDetails = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/`);
             name = teamDetails.name || "Unknown";
-
             const { city, state, country } = teamDetails;
-            location = (city || state) ? `${city ?? ''}, ${state ?? ''}, ${country}` : country === "Independent" ? "Independent" : country;
+            location = (!city && !state && country === "Independent") ? "Independent"
+                      : `${city ?? ''}, ${state ?? ''}, ${country}`;
           } catch {}
 
           let stats = {};
           try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`);
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${team.teamNumber}/quick-stats?season=${year}`);
           } catch {}
 
           const values = {};
@@ -297,53 +222,46 @@
           categories.forEach(cat => {
             const val = stats[cat]?.value;
             const rank = stats[cat]?.rank;
-            if (typeof val === 'number' && typeof rank === 'number') {
-              values[cat] = { value: val, rank, display: `${val.toFixed(2)} (${toOrdinal(rank)})` };
-            } else {
-              values[cat] = { display: "No Statistics Available" };
-            }
+            values[cat] = (typeof val === 'number' && typeof rank === 'number') ?
+              { value: val, rank, display: `${val.toFixed(2)} (${rank}${getOrdinal(rank)})` } :
+              { display: "N/A" };
           });
 
-          teamStatsList.push({ teamNumber, name, location, values });
+          teamStatsList.push({ teamNumber: team.teamNumber, name, location, values });
           const percent = Math.round(((i + 1) / teams.length) * 100);
           loadingDiv.textContent = `Processing team ${i + 1}/${teams.length} (${percent}%)...`;
-
           renderTable(teamStatsList, sortBy);
         }
 
         cachedData = teamStatsList;
         lastEventKey = key;
-
         addPopup(`Finished scouting ${event.name}`);
         loadingDiv.textContent = "";
       } catch (err) {
         addPopup("Event not found or error loading.");
-        console.error(err);
         loadingDiv.textContent = "";
       }
+    }
+
+    function getOrdinal(n) {
+      const s = ["th", "st", "nd", "rd"], v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
     }
 
     function renderTable(data, sortBy) {
       const tbody = document.querySelector('#rankings tbody');
       tbody.innerHTML = "";
-
-      const sorted = [...data].sort((a, b) => {
-        const aVal = a.values[sortBy]?.value;
-        const bVal = b.values[sortBy]?.value;
-        return bVal - aVal;
-      });
+      const sorted = [...data].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
 
       sorted.forEach((team, i) => {
-        const row = document.createElement("tr");
         const val = team.values[sortBy];
         let className = "";
-
         if (val?.rank !== undefined) {
           if (val.rank <= 100) className = "rank-green";
           else if (val.rank <= 250) className = "rank-yellow";
           else if (val.rank <= 500) className = "rank-orange";
         }
-
+        const row = document.createElement("tr");
         row.innerHTML = `
           <td>${i + 1}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
