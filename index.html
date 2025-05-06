@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event OPR Rankings</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
@@ -120,13 +120,16 @@
       color: #888;
     }
     .rank-green {
-      background-color: #2e7d32;
+      color: #4caf50;
+      font-weight: bold;
     }
     .rank-yellow {
-      background-color: #fdd835;
+      color: #fdd835;
+      font-weight: bold;
     }
     .rank-orange {
-      background-color: #fb8c00;
+      color: #fb8c00;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -258,9 +261,10 @@
           const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
             const val = stats[key]?.value;
             const rank = stats[key]?.rank;
+            const className = rank <= 100 ? "rank-green" : rank <= 250 ? "rank-yellow" : rank <= 500 ? "rank-orange" : "";
             acc[key] = val !== undefined && rank !== undefined
-              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
-              : { display: "No Data" };
+              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})`, className }
+              : { display: "No Data", className: "" };
             return acc;
           }, {});
           
@@ -292,23 +296,15 @@
       });
 
       sorted.forEach((team, idx) => {
-        const val = team.values[sortBy];
-        let colorClass = "";
-        if (val?.rank !== undefined) {
-          if (val.rank <= 100) colorClass = "rank-green";
-          else if (val.rank <= 250) colorClass = "rank-yellow";
-          else if (val.rank <= 500) colorClass = "rank-orange";
-        }
-
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${idx + 1}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
-          <td class="${sortBy === 'tot' ? colorClass : ''}">${team.values.tot.display}</td>
-          <td class="${sortBy === 'auto' ? colorClass : ''}">${team.values.auto.display}</td>
-          <td class="${sortBy === 'dc' ? colorClass : ''}">${team.values.dc.display}</td>
-          <td class="${sortBy === 'eg' ? colorClass : ''}">${team.values.eg.display}</td>
+          <td class="${team.values.tot.className}">${team.values.tot.display}</td>
+          <td class="${team.values.auto.className}">${team.values.auto.display}</td>
+          <td class="${team.values.dc.className}">${team.values.dc.display}</td>
+          <td class="${team.values.eg.className}">${team.values.eg.display}</td>
         `;
         tbody.appendChild(row);
       });
