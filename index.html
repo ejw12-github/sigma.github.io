@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Scouting</title>
+  <title>FTC Event OPR Rankings</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
@@ -64,21 +63,9 @@
       color: #bb86fc;
       font-weight: bold;
     }
-    a {
-      color: #9cd1ff;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    #loading {
-      color: #bb86fc;
-      margin-top: 10px;
-    }
-    #theme-toggle {
-      position: absolute;
-      right: 20px;
-      top: 20px;
+    .highlighted-row {
+      outline: 2px solid #bb86fc;
+      outline-offset: -2px;
     }
     .popup-container {
       position: fixed;
@@ -115,11 +102,6 @@
       padding: 5px 10px;
       cursor: pointer;
     }
-    #footer {
-      margin-top: 30px;
-      font-size: 14px;
-      color: #888;
-    }
     .rank-green {
       color: #4caf50;
       font-weight: bold;
@@ -132,12 +114,17 @@
       color: #fb8c00;
       font-weight: bold;
     }
+    .sort-highlight {
+      outline: 2px solid #bb86fc;
+      outline-offset: -2px;
+    }
+    .opr-highlight {
+      background-color: #2b1d39 !important;
+    }
   </style>
 </head>
 <body>
-  <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-
-  <h1 id="event-title">FTC Event Scouting</h1>
+  <h1 id="event-title">FTC Event OPR Rankings</h1>
   <div class="info" id="event-info"></div>
 
   <div class="input-container">
@@ -145,10 +132,6 @@
     <select id="year">
       <option value="2024">2024 - Into the Deep</option>
       <option value="2023">2023 - Centerstage</option>
-      <option value="2022">2022 - Power Play</option>
-      <option value="2021">2021 - Freight Frenzy</option>
-      <option value="2020">2020 - Ultimate Goal</option>
-      <option value="2019">2019 - Skystone</option>
     </select>
     <select id="sortBy">
       <option value="tot">Total OPR</option>
@@ -157,6 +140,7 @@
       <option value="eg">Endgame OPR</option>
     </select>
     <button onclick="loadData()">Load Rankings</button>
+    <button onclick="showHighlightPopup()">Highlight Team</button>
     <div id="loading"></div>
   </div>
 
@@ -177,27 +161,36 @@
 
   <div class="info" id="total-teams"></div>
   <div class="popup-container" id="popup-container"></div>
-  <div id="footer">Powered by FTCScout API</div>
 
   <script>
-    let currentTheme = 'dark';
     let cachedData = null;
-    let lastKey = "";
+    let highlightedTeam = null;
     let abortController = null;
 
-    function toggleTheme() {
-      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.body.style.backgroundColor = currentTheme === 'dark' ? '#121212' : '#f0f0f0';
-      document.body.style.color = currentTheme === 'dark' ? '#e0e0e0' : '#111';
-    }
-
-    function addPopup(message) {
+    function addPopup(message, buttonText = "Dismiss", onClick = null) {
       const container = document.getElementById("popup-container");
       const popup = document.createElement("div");
       popup.className = "popup";
-      popup.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">Dismiss</button>`;
+      const btn = document.createElement("button");
+      btn.textContent = buttonText;
+      btn.onclick = () => {
+        popup.remove();
+        if (onClick) onClick();
+      };
+      popup.innerHTML = `<span>${message}</span>`;
+      popup.appendChild(btn);
       container.appendChild(popup);
-      if (container.children.length > 5) container.firstChild.remove();
+    }
+
+    function showHighlightPopup() {
+      const team = prompt("Enter a team number to highlight:");
+      if (!team) return;
+      highlightedTeam = parseInt(team);
+      renderTable(cachedData, document.getElementById("sortBy").value);
+      addPopup(`Currently highlighting team ${highlightedTeam}`, "Dismiss", () => {
+        highlightedTeam = null;
+        renderTable(cachedData, document.getElementById("sortBy").value);
+      });
     }
 
     async function fetchJSON(url, signal) {
@@ -210,46 +203,34 @@
       const code = document.getElementById("eventCode").value.trim();
       const year = document.getElementById("year").value;
       const sortBy = document.getElementById("sortBy").value;
-      const key = `${code}_${year}`;
-
       const loading = document.getElementById("loading");
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
-      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
-      document.getElementById(`${sortBy}Header`).classList.add("highlight");
+      highlightedTeam = null;
+
+      document.querySelectorAll("th").forEach(th => th.classList.remove("sort-highlight"));
+      document.getElementById(`${sortBy}Header`).classList.add("sort-highlight");
 
       if (abortController) abortController.abort();
       abortController = new AbortController();
       const { signal } = abortController;
 
-      if (cachedData && key === lastKey) {
-        renderTable(cachedData, sortBy);
-        return;
-      }
-
-      loading.textContent = "Loading event...";
+      loading.textContent = "Loading...";
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
-        const start = new Date(event.start).toLocaleDateString();
-        const end = new Date(event.end).toLocaleDateString();
-        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country === "Independent" ? "Independent" : event.country;
-
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
-
+        document.getElementById("event-info").textContent = `${event.city ?? ''}, ${event.state ?? ''}, ${event.country} • ${new Date(event.start).toLocaleDateString()} - ${new Date(event.end).toLocaleDateString()}`;
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
-        const teamData = [];
 
+        const teamData = [];
         for (let i = 0; i < teams.length; i++) {
           const teamNumber = teams[i].teamNumber;
-          let name = "Unknown", location = "Unknown";
-
+          let location = "Unknown", name = "Unknown";
           try {
             const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
             name = info.name ?? "Unknown";
-            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country === "Independent" ? "Independent" : info.country;
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country ?? "Unknown";
           } catch {}
-
           let stats = {};
           try {
             stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
@@ -267,17 +248,16 @@
 
           teamData.push({ teamNumber, name, location, values });
           renderTable(teamData, sortBy);
-          loading.textContent = `Processing team ${i + 1}/${teams.length} (${Math.round((i + 1) / teams.length * 100)}%)`;
+          loading.textContent = `Processed ${i + 1} / ${teams.length}`;
         }
 
         cachedData = teamData;
-        lastKey = key;
         loading.textContent = "";
         addPopup(`Finished scouting ${event.name}`);
       } catch (e) {
         if (e.name !== 'AbortError') {
-          addPopup("Event not found or error occurred.");
           loading.textContent = "";
+          addPopup("Failed to load event.");
         }
       }
     }
@@ -286,27 +266,47 @@
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
 
-      const sorted = [...data].sort((a, b) => {
+      let sorted = [...data].sort((a, b) => {
         const av = a.values[sortBy]?.value ?? -Infinity;
         const bv = b.values[sortBy]?.value ?? -Infinity;
         return bv - av;
       });
 
+      if (highlightedTeam) {
+        const highlight = data.find(t => t.teamNumber === highlightedTeam);
+        if (highlight) {
+          const tr = makeRow(highlight, sortBy, true);
+          tbody.appendChild(tr);
+        }
+      }
+
       sorted.forEach((team, idx) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${idx + 1}</td>
-          <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
-          <td>${team.location}</td>
-          <td class="${team.values.tot.className}">${team.values.tot.display}</td>
-          <td class="${team.values.auto.className}">${team.values.auto.display}</td>
-          <td class="${team.values.dc.className}">${team.values.dc.display}</td>
-          <td class="${team.values.eg.className}">${team.values.eg.display}</td>
-        `;
-        tbody.appendChild(row);
+        const tr = makeRow(team, sortBy, false, idx + 1);
+        tbody.appendChild(tr);
       });
 
       document.getElementById("total-teams").textContent = `Total Teams: ${data.length}`;
+    }
+
+    function makeRow(team, sortBy, isHighlightClone = false, rank = "") {
+      const tr = document.createElement("tr");
+      if (team.teamNumber === highlightedTeam) tr.classList.add("highlighted-row");
+
+      const td = (val, className, colKey) => {
+        const extra = colKey === sortBy ? "opr-highlight" : "";
+        return `<td class="${className} ${extra}">${val}</td>`;
+      };
+
+      tr.innerHTML = `
+        <td>${isHighlightClone ? "★" : rank}</td>
+        <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
+        <td>${team.location}</td>
+        ${td(team.values.tot.display, team.values.tot.className, 'tot')}
+        ${td(team.values.auto.display, team.values.auto.className, 'auto')}
+        ${td(team.values.dc.display, team.values.dc.className, 'dc')}
+        ${td(team.values.eg.display, team.values.eg.className, 'eg')}
+      `;
+      return tr;
     }
   </script>
 </body>
