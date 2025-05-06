@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Rankings</title>
+  <title>FTC Event OPR Rankings</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
@@ -217,11 +217,7 @@
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
-      if (abortController) {
-        abortController.abort();
-        addPopup(`Cancelled scouting for previous event`);
-      }
-
+      if (abortController) abortController.abort();
       abortController = new AbortController();
       const { signal } = abortController;
 
@@ -267,7 +263,7 @@
               : { display: "No Data", className: "" };
             return acc;
           }, {});
-          
+
           teamData.push({ teamNumber, name, location, values });
           renderTable(teamData, sortBy);
           loading.textContent = `Processing team ${i + 1}/${teams.length} (${Math.round((i + 1) / teams.length * 100)}%)`;
