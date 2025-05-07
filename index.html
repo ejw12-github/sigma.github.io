@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -47,7 +47,7 @@
       color: #bb86fc !important;
       font-weight: bold;
     }
-    .sorted, th.sorted {
+    .sorted {
       background-color: #2e004f !important;
     }
     a {
@@ -59,6 +59,38 @@
       color: #bb86fc;
       margin-top: 10px;
     }
+    .popup-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 9999;
+    }
+    .popup {
+      background-color: #1e1e1e;
+      color: white;
+      padding: 10px 20px;
+      border: 1px solid #bb86fc;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 300px;
+    }
+    .popup span { flex: 1; text-align: center; }
+    .popup button {
+      background-color: #bb86fc;
+      border: none;
+      border-radius: 5px;
+      color: black;
+      font-weight: bold;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
     #footer {
       margin-top: 30px;
       font-size: 14px;
@@ -67,23 +99,6 @@
     .rank-green { color: #00e676; font-weight: bold; }
     .rank-yellow { color: #ffeb3b; font-weight: bold; }
     .rank-orange { color: #ff9800; font-weight: bold; }
-
-    body.light {
-      background-color: #f0f0f0;
-      color: #111;
-    }
-    body.light input, body.light select, body.light button {
-      background-color: #ffffff;
-      color: #111;
-      border: 1px solid #999;
-    }
-    body.light table {
-      background-color: #fff;
-    }
-    body.light th {
-      background-color: #f5f5f5;
-      color: #000;
-    }
   </style>
 </head>
 <body>
@@ -133,13 +148,7 @@
 
   <script>
     let cachedData = [];
-    let lastKey = '';
     let abortController = null;
-
-    function ordinal(n) {
-      const s = ["th", "st", "nd", "rd"], v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    }
 
     function addPopup(message) {
       const container = document.getElementById("popup-container");
@@ -150,63 +159,18 @@
       if (container.children.length > 5) container.firstChild.remove();
     }
 
-    function highlightSortHeader(sortBy) {
-      ['tot', 'auto', 'dc', 'eg'].forEach(id => {
-        const header = document.getElementById(id + "Header");
-        header.classList.toggle("sorted", id === sortBy);
-      });
+    function ordinal(n) {
+      const s = ["th", "st", "nd", "rd"], v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
     function renderOPRCell(opr, key, sortBy) {
-      if (!opr || opr.value == null || opr.rank == null) return `<td class="${key === sortBy ? 'sorted' : ''}">No Data</td>`;
+      if (!opr.rank) return `<td class="${key === sortBy ? 'sorted' : ''}">No Data</td>`;
       let cls = '';
       if (opr.rank < 100) cls = 'rank-green';
       else if (opr.rank < 250) cls = 'rank-yellow';
       else if (opr.rank < 500) cls = 'rank-orange';
-      return `<td class="${key === sortBy ? 'sorted' : ''} ${cls}">${opr.value.toFixed(2)} (${ordinal(opr.rank)})</td>`;
-    }
-
-    function renderLiveTable(sortBy, highlightTeam) {
-      const tbody = document.querySelector("#rankings tbody");
-      tbody.innerHTML = "";
-
-      highlightSortHeader(sortBy);
-
-      const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
-
-      const highlightIndex = sorted.findIndex(t => t.teamNumber === highlightTeam);
-      const highlight = highlightIndex !== -1 ? sorted.splice(highlightIndex, 1)[0] : null;
-
-      if (highlight) {
-        const row = document.createElement("tr");
-        row.classList.add("highlight");
-        row.innerHTML = `
-          <td>${ordinal(highlight.values[sortBy]?.rank || 0)}</td>
-          <td><a href="https://ftcscout.org/teams/${highlight.teamNumber}" target="_blank">#${highlight.teamNumber} - ${highlight.name}</a></td>
-          <td>${highlight.location}</td>
-          ${renderOPRCell(highlight.values.tot, 'tot', sortBy)}
-          ${renderOPRCell(highlight.values.auto, 'auto', sortBy)}
-          ${renderOPRCell(highlight.values.dc, 'dc', sortBy)}
-          ${renderOPRCell(highlight.values.eg, 'eg', sortBy)}
-        `;
-        tbody.appendChild(row);
-      }
-
-      sorted.forEach((team) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${ordinal(team.values[sortBy]?.rank || 0)}</td>
-          <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
-          <td>${team.location}</td>
-          ${renderOPRCell(team.values.tot, 'tot', sortBy)}
-          ${renderOPRCell(team.values.auto, 'auto', sortBy)}
-          ${renderOPRCell(team.values.dc, 'dc', sortBy)}
-          ${renderOPRCell(team.values.eg, 'eg', sortBy)}
-        `;
-        tbody.appendChild(row);
-      });
-
-      document.getElementById("total-teams").textContent = `Total Teams: ${cachedData.length}`;
+      return `<td class="${key === sortBy ? 'sorted' : ''} ${cls}">${opr.display}</td>`;
     }
 
     async function fetchJSON(url, signal) {
@@ -221,28 +185,89 @@
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
 
-      const key = `${code}_${year}`;
-      if (key === lastKey) {
-        renderLiveTable(sortBy, highlightTeam);
-        return;
-      }
+      const tbody = document.querySelector("#rankings tbody");
+      tbody.innerHTML = "";
+      cachedData = [];
+      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
+      document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
       if (abortController) abortController.abort();
       abortController = new AbortController();
+      const { signal } = abortController;
+
+      document.getElementById("loading").textContent = "Loading event...";
 
       try {
-        document.getElementById("loading").textContent = "Loading...";
-        const data = await fetchJSON(`https://ftcscout.org/api/v1/opr/${code}/${year}`, { signal: abortController.signal });
-        cachedData = data.teams;
-        lastKey = key;
+        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
+        document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
+        const start = new Date(event.start).toLocaleDateString();
+        const end = new Date(event.end).toLocaleDateString();
+        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country;
+        document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
+
+        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
+
+        for (let i = 0; i < teams.length; i++) {
+          const teamNumber = teams[i].teamNumber;
+          let name = "Unknown", location = "Unknown";
+          try {
+            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
+            name = info.name ?? "Unknown";
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
+          } catch {}
+
+          let stats = {};
+          try {
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
+          } catch {}
+
+          const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
+            const val = stats[key]?.value;
+            const rank = stats[key]?.rank;
+            acc[key] = val !== undefined && rank !== undefined
+              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
+              : { display: "No Data" };
+            return acc;
+          }, {});
+
+          cachedData.push({ teamNumber, name, location, values });
+
+          renderLiveTable(sortBy, highlightTeam);
+          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
+        }
+
         document.getElementById("loading").textContent = "";
-        renderLiveTable(sortBy, highlightTeam);
-      } catch (error) {
-        document.getElementById("loading").textContent = "";
-        addPopup(`Failed to load data: ${error.message}`);
+        addPopup(`Finished scouting ${event.name}`);
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          document.getElementById("loading").textContent = "";
+          addPopup("Event not found or error occurred.");
+        }
       }
     }
-  </script>
 
+    function renderLiveTable(sortBy, highlightTeam) {
+      const tbody = document.querySelector("#rankings tbody");
+      tbody.innerHTML = "";
+
+      const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
+      sorted.forEach((team, idx) => {
+        const row = document.createElement("tr");
+        if (team.teamNumber === highlightTeam) row.classList.add("highlight");
+        row.innerHTML = `
+          <td>${ordinal(idx + 1)}</td>
+          <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
+          <td>${team.location}</td>
+          ${renderOPRCell(team.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(team.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(team.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(team.values.eg, 'eg', sortBy)}
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById("total-teams").textContent = `Total Teams: ${cachedData.length}`;
+    }
+  </script>
 </body>
 </html>
