@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Scouting</title>
+  <title>FTC Event OPR Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -59,43 +59,6 @@
       color: #bb86fc;
       margin-top: 10px;
     }
-    #theme-toggle {
-      position: absolute;
-      right: 20px;
-      top: 20px;
-    }
-    .popup-container {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      z-index: 9999;
-    }
-    .popup {
-      background-color: #1e1e1e;
-      color: white;
-      padding: 10px 20px;
-      border: 1px solid #bb86fc;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-width: 300px;
-    }
-    .popup span { flex: 1; text-align: center; }
-    .popup button {
-      background-color: #bb86fc;
-      border: none;
-      border-radius: 5px;
-      color: black;
-      font-weight: bold;
-      padding: 5px 10px;
-      cursor: pointer;
-    }
     #footer {
       margin-top: 30px;
       font-size: 14px;
@@ -124,7 +87,6 @@
   </style>
 </head>
 <body>
-  <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
 
   <h1 id="event-title">FTC Event Scouting</h1>
   <div class="info" id="event-info"></div>
@@ -175,10 +137,6 @@
     let lastKey = '';
     let abortController = null;
 
-    function toggleTheme() {
-      document.body.classList.toggle("light");
-    }
-
     function ordinal(n) {
       const s = ["th", "st", "nd", "rd"], v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -218,7 +176,7 @@
       const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
 
       const highlight = sorted.find(t => t.teamNumber === highlightTeam);
-      const otherTeams = sorted;
+      const otherTeams = sorted.filter(t => t.teamNumber !== highlightTeam);
 
       if (highlight) {
         const pinnedRow = document.createElement("tr");
@@ -240,7 +198,7 @@
         if (team.teamNumber === highlightTeam) row.classList.add("highlight");
 
         row.innerHTML = `
-          <td>${ordinal(idx + 1)}</td>
+          <td>${ordinal(idx + 1 + (highlight ? 1 : 0))}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
           ${renderOPRCell(team.values.tot, 'tot', sortBy)}
@@ -265,77 +223,24 @@
       const year = document.getElementById("year").value;
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
-      const key = `${year}-${code}`;
 
-      if (key === lastKey && cachedData.length) {
-        renderLiveTable(sortBy, highlightTeam);
-        return;
-      }
+      const key = `${code}_${year}`;
 
-      document.getElementById("loading").textContent = "Loading event...";
-      lastKey = key;
+      if (key === lastKey) return;
 
       if (abortController) abortController.abort();
       abortController = new AbortController();
-      const { signal } = abortController;
-
-      if (eventCache[key]) {
-        cachedData = eventCache[key];
-        renderLiveTable(sortBy, highlightTeam);
-        return;
-      }
 
       try {
-        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
-        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
+        const data = await fetchJSON(`https://ftcscout.org/api/v1/opr/${code}/${year}`, { signal: abortController.signal });
+        cachedData = data.teams;
 
-        document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
-        const start = new Date(event.start).toLocaleDateString();
-        const end = new Date(event.end).toLocaleDateString();
-        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country;
-        document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
-
-        cachedData = [];
-
-        for (let i = 0; i < teams.length; i++) {
-          const teamNumber = teams[i].teamNumber;
-          let name = "Unknown", location = "Unknown";
-          try {
-            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
-            name = info.name ?? "Unknown";
-            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
-          } catch {}
-
-          let stats = {};
-          try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
-          } catch {}
-
-          const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
-            const val = stats[key]?.value;
-            const rank = stats[key]?.rank;
-            acc[key] = val !== undefined && rank !== undefined
-              ? { value: val, rank }
-              : { display: "No Data" };
-            return acc;
-          }, {});
-
-          cachedData.push({ teamNumber, name, location, values });
-
-          renderLiveTable(sortBy, highlightTeam);
-          document.getElementById("loading").textContent = `Processed ${i + 1} / ${teams.length} teams (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
-        }
-
-        eventCache[key] = cachedData;
-        document.getElementById("loading").textContent = "";
-        addPopup(`Finished scouting ${event.name}`);
-      } catch (e) {
-        if (e.name !== 'AbortError') {
-          document.getElementById("loading").textContent = "";
-          addPopup("Event not found or error occurred.");
-        }
+        renderLiveTable(sortBy, highlightTeam);
+      } catch (error) {
+        addPopup(`Failed to load data: ${error.message}`);
       }
     }
   </script>
+
 </body>
 </html>
