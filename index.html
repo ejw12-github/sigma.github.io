@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -47,7 +47,7 @@
       color: #bb86fc !important;
       font-weight: bold;
     }
-    .sorted {
+    .sorted, th.sorted {
       background-color: #2e004f !important;
     }
     a {
@@ -105,7 +105,6 @@
     .rank-yellow { color: #ffeb3b; font-weight: bold; }
     .rank-orange { color: #ff9800; font-weight: bold; }
 
-    /* Light theme overrides */
     body.light {
       background-color: #f0f0f0;
       color: #111;
@@ -136,9 +135,6 @@
       <option value="2024">2024 - Into the Deep</option>
       <option value="2023">2023 - Centerstage</option>
       <option value="2022">2022 - Power Play</option>
-      <option value="2021">2021 - Freight Frenzy</option>
-      <option value="2020">2020 - Ultimate Goal</option>
-      <option value="2019">2019 - Skystone</option>
     </select>
     <select id="sortBy">
       <option value="tot">Total OPR</option>
@@ -173,6 +169,7 @@
   <script>
     let eventCache = {};
     let cachedData = [];
+    let lastKey = '';
     let abortController = null;
 
     function toggleTheme() {
@@ -193,6 +190,13 @@
       if (container.children.length > 5) container.firstChild.remove();
     }
 
+    function highlightSortHeader(sortBy) {
+      ['tot', 'auto', 'dc', 'eg'].forEach(id => {
+        const header = document.getElementById(id + "Header");
+        header.classList.toggle("sorted", id === sortBy);
+      });
+    }
+
     function renderOPRCell(opr, key, sortBy) {
       if (!opr.rank) return `<td class="${key === sortBy ? 'sorted' : ''}">No Data</td>`;
       let cls = '';
@@ -206,21 +210,34 @@
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
 
+      highlightSortHeader(sortBy);
+
       const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
 
       const highlight = sorted.find(t => t.teamNumber === highlightTeam);
-      const otherTeams = sorted.filter(t => t.teamNumber !== highlightTeam);
+      const otherTeams = sorted;
 
-      const displayTeams = highlight ? [highlight, ...otherTeams] : sorted;
+      if (highlight) {
+        const pinnedRow = document.createElement("tr");
+        pinnedRow.classList.add("highlight");
+        pinnedRow.innerHTML = `
+          <td>★</td>
+          <td><a href="https://ftcscout.org/teams/${highlight.teamNumber}" target="_blank">#${highlight.teamNumber} - ${highlight.name}</a></td>
+          <td>${highlight.location}</td>
+          ${renderOPRCell(highlight.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(highlight.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(highlight.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(highlight.values.eg, 'eg', sortBy)}
+        `;
+        tbody.appendChild(pinnedRow);
+      }
 
-      displayTeams.forEach((team, idx) => {
+      otherTeams.forEach((team, idx) => {
         const row = document.createElement("tr");
         if (team.teamNumber === highlightTeam) row.classList.add("highlight");
 
-        const actualRank = sorted.findIndex(t => t.teamNumber === team.teamNumber) + 1;
-
         row.innerHTML = `
-          <td>${ordinal(actualRank)}</td>
+          <td>${ordinal(idx + 1)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
           ${renderOPRCell(team.values.tot, 'tot', sortBy)}
@@ -245,16 +262,22 @@
       const year = document.getElementById("year").value;
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
-      const cacheKey = `${year}-${code}`;
+      const key = `${year}-${code}`;
+
+      if (key === lastKey && cachedData.length) {
+        renderLiveTable(sortBy, highlightTeam);
+        return;
+      }
 
       document.getElementById("loading").textContent = "Loading event...";
+      lastKey = key;
 
       if (abortController) abortController.abort();
       abortController = new AbortController();
       const { signal } = abortController;
 
-      if (eventCache[cacheKey]) {
-        cachedData = eventCache[cacheKey];
+      if (eventCache[key]) {
+        cachedData = eventCache[key];
         renderLiveTable(sortBy, highlightTeam);
         return;
       }
@@ -300,7 +323,7 @@
           document.getElementById("loading").textContent = `Processed ${i + 1} / ${teams.length} teams (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
         }
 
-        eventCache[cacheKey] = cachedData;
+        eventCache[key] = cachedData;
         document.getElementById("loading").textContent = "";
         addPopup(`Finished scouting ${event.name}`);
       } catch (e) {
