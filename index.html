@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -105,35 +105,30 @@
     .rank-yellow { color: #ffeb3b; font-weight: bold; }
     .rank-orange { color: #ff9800; font-weight: bold; }
 
-    /* Light theme styles */
+    /* Light theme tweaks */
     body.light {
       background-color: #f0f0f0;
       color: #111;
     }
-    body.light input, body.light select, body.light button {
-      background-color: #fff;
-      color: #111;
-      border: 1px solid #bbb;
+    body.light input,
+    body.light select,
+    body.light button {
+      background-color: #ffffff;
+      color: #000;
+      border: 1px solid #ccc;
     }
     body.light table {
-      background-color: #ffffff;
+      background-color: #fff;
     }
     body.light th {
-      background-color: #ffffff;
-      color: #111;
-    }
-    body.light tr:nth-child(even) {
-      background-color: #f2f2f2;
-    }
-    body.light .popup {
-      background-color: #ffffff;
-      color: #111;
-      border-color: #6200ee;
+      background-color: #000;
+      color: white;
     }
   </style>
 </head>
 <body>
   <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+
   <h1 id="event-title">FTC Event Scouting</h1>
   <div class="info" id="event-info"></div>
 
@@ -178,11 +173,11 @@
   <div id="footer">Powered by FTCScout API</div>
 
   <script>
-    const dataCache = new Map();
+    let dataCache = new Map();
     let abortController = null;
 
     function toggleTheme() {
-      document.body.classList.toggle('light');
+      document.body.classList.toggle("light");
     }
 
     function addPopup(message) {
@@ -220,8 +215,8 @@
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
       const key = `${year}_${code}`;
-
       const tbody = document.querySelector("#rankings tbody");
+
       tbody.innerHTML = "";
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
@@ -237,11 +232,12 @@
         if (!cached) {
           const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
           const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
-
           const teamData = [];
+
           for (let i = 0; i < teams.length; i++) {
             const teamNumber = teams[i].teamNumber;
             let name = "Unknown", location = "Unknown";
+
             try {
               const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
               name = info.name ?? "Unknown";
@@ -262,15 +258,19 @@
               return acc;
             }, {});
 
-            teamData.push({ teamNumber, name, location, values });
+            const teamEntry = { teamNumber, name, location, values };
+            teamData.push(teamEntry);
 
-            document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length}...`;
+            const percent = Math.round(((i + 1) / teams.length) * 100);
+            document.getElementById("loading").textContent = `${i + 1} / ${teams.length} teams processed (${percent}%)`;
           }
+
           cached = { event, teamData };
           dataCache.set(key, cached);
         }
 
         const { event, teamData } = cached;
+
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
         const start = new Date(event.start).toLocaleDateString();
         const end = new Date(event.end).toLocaleDateString();
@@ -293,26 +293,28 @@
       tbody.innerHTML = "";
 
       const sorted = [...data].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
-      const highlightEntry = sorted.find(t => t.teamNumber === highlightTeam);
 
-      if (highlightEntry) {
-        const highlightRow = document.createElement("tr");
-        highlightRow.classList.add("highlight");
-        highlightRow.innerHTML = `
-          <td>—</td>
-          <td><a href="https://ftcscout.org/teams/${highlightEntry.teamNumber}" target="_blank">#${highlightEntry.teamNumber} - ${highlightEntry.name}</a></td>
-          <td>${highlightEntry.location}</td>
-          ${renderOPRCell(highlightEntry.values.tot, 'tot', sortBy)}
-          ${renderOPRCell(highlightEntry.values.auto, 'auto', sortBy)}
-          ${renderOPRCell(highlightEntry.values.dc, 'dc', sortBy)}
-          ${renderOPRCell(highlightEntry.values.eg, 'eg', sortBy)}
+      const highlight = sorted.find(t => t.teamNumber === highlightTeam);
+      const highlightIndex = sorted.findIndex(t => t.teamNumber === highlightTeam);
+
+      if (highlight) {
+        const row = document.createElement("tr");
+        row.classList.add("highlight");
+        row.innerHTML = `
+          <td>${ordinal(highlightIndex + 1)}</td>
+          <td><a href="https://ftcscout.org/teams/${highlight.teamNumber}" target="_blank">#${highlight.teamNumber} - ${highlight.name}</a></td>
+          <td>${highlight.location}</td>
+          ${renderOPRCell(highlight.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(highlight.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(highlight.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(highlight.values.eg, 'eg', sortBy)}
         `;
-        tbody.appendChild(highlightRow);
+        tbody.appendChild(row);
       }
 
       sorted.forEach((team, idx) => {
+        if (team.teamNumber === highlightTeam) return;
         const row = document.createElement("tr");
-        if (team.teamNumber === highlightTeam) row.classList.add("highlight");
         row.innerHTML = `
           <td>${ordinal(idx + 1)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
