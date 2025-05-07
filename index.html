@@ -221,7 +221,7 @@
         const pinnedRow = document.createElement("tr");
         pinnedRow.classList.add("highlight");
         pinnedRow.innerHTML = `
-          <td>★</td>
+          <td>${ordinal(highlight.values[sortBy]?.rank || 0)}</td>
           <td><a href="https://ftcscout.org/teams/${highlight.teamNumber}" target="_blank">#${highlight.teamNumber} - ${highlight.name}</a></td>
           <td>${highlight.location}</td>
           ${renderOPRCell(highlight.values.tot, 'tot', sortBy)}
