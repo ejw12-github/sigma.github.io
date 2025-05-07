@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -46,6 +46,9 @@
       background-color: #2e004f !important;
       color: #bb86fc !important;
       font-weight: bold;
+    }
+    .sorted {
+      background-color: #292929 !important;
     }
     a {
       color: #9cd1ff;
@@ -98,9 +101,6 @@
       font-size: 14px;
       color: #888;
     }
-    .rank-green { color: #4caf50; font-weight: bold; }
-    .rank-yellow { color: #fdd835; font-weight: bold; }
-    .rank-orange { color: #fb8c00; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -150,15 +150,14 @@
   <div id="footer">Powered by FTCScout API</div>
 
   <script>
-    let currentTheme = 'dark';
     let cachedData = null;
     let lastKey = "";
     let abortController = null;
 
     function toggleTheme() {
-      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.body.style.backgroundColor = currentTheme === 'dark' ? '#121212' : '#f0f0f0';
-      document.body.style.color = currentTheme === 'dark' ? '#e0e0e0' : '#111';
+      const isDark = document.body.style.backgroundColor !== 'rgb(240, 240, 240)';
+      document.body.style.backgroundColor = isDark ? '#f0f0f0' : '#121212';
+      document.body.style.color = isDark ? '#111' : '#e0e0e0';
     }
 
     function addPopup(message) {
@@ -176,13 +175,17 @@
       return res.json();
     }
 
+    function ordinal(n) {
+      const s = ["th", "st", "nd", "rd"], v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
     async function loadData() {
       const code = document.getElementById("eventCode").value.trim();
       const year = document.getElementById("year").value;
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
       const key = `${code}_${year}`;
-
       const loading = document.getElementById("loading");
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
@@ -203,7 +206,7 @@
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
         const start = new Date(event.start).toLocaleDateString();
         const end = new Date(event.end).toLocaleDateString();
-        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country === "Independent" ? "Independent" : event.country;
+        const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country;
 
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
         document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
@@ -218,7 +221,7 @@
           try {
             const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
             name = info.name ?? "Unknown";
-            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country === "Independent" ? "Independent" : info.country;
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
           } catch {}
 
           let stats = {};
@@ -229,15 +232,13 @@
           const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
             const val = stats[key]?.value;
             const rank = stats[key]?.rank;
-            const className = rank <= 100 ? "rank-green" : rank <= 250 ? "rank-yellow" : rank <= 500 ? "rank-orange" : "";
             acc[key] = val !== undefined && rank !== undefined
-              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})`, className }
-              : { display: "No Data", className: "" };
+              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
+              : { display: "No Data" };
             return acc;
           }, {});
 
           teamData.push({ teamNumber, name, location, values });
-          renderTable(teamData, sortBy, highlightTeam);
           loading.textContent = `Processing team ${i + 1}/${teams.length} (${Math.round((i + 1) / teams.length * 100)}%)`;
         }
 
@@ -245,6 +246,7 @@
         lastKey = key;
         loading.textContent = "";
         addPopup(`Finished scouting ${event.name}`);
+        renderTable(teamData, sortBy, highlightTeam);
       } catch (e) {
         if (e.name !== 'AbortError') {
           addPopup("Event not found or error occurred.");
@@ -256,43 +258,38 @@
     function renderTable(data, sortBy, highlightTeam = null) {
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
+      const sorted = [...data].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
+      let highlightIndex = sorted.findIndex(t => t.teamNumber === highlightTeam);
 
-      const sorted = [...data].sort((a, b) => {
-        const av = a.values[sortBy]?.value ?? -Infinity;
-        const bv = b.values[sortBy]?.value ?? -Infinity;
-        return bv - av;
-      });
-
-      let highlightEntry = null;
-      if (highlightTeam) {
-        highlightEntry = sorted.find(t => t.teamNumber === highlightTeam);
-        if (highlightEntry) {
-          const row = document.createElement("tr");
-          row.classList.add("highlight");
-          row.innerHTML = `
-            <td>⭐</td>
-            <td><a href="https://ftcscout.org/teams/${highlightEntry.teamNumber}" target="_blank">#${highlightEntry.teamNumber} - ${highlightEntry.name}</a></td>
-            <td>${highlightEntry.location}</td>
-            <td class="${highlightEntry.values.tot.className}">${highlightEntry.values.tot.display}</td>
-            <td class="${highlightEntry.values.auto.className}">${highlightEntry.values.auto.display}</td>
-            <td class="${highlightEntry.values.dc.className}">${highlightEntry.values.dc.display}</td>
-            <td class="${highlightEntry.values.eg.className}">${highlightEntry.values.eg.display}</td>
-          `;
-          tbody.appendChild(row);
-        }
+      if (highlightTeam && highlightIndex === -1) {
+        addPopup(`Team ${highlightTeam} is not in this event`);
+      } else if (highlightIndex !== -1) {
+        const team = sorted[highlightIndex];
+        const row = document.createElement("tr");
+        row.classList.add("highlight");
+        row.innerHTML = `
+          <td>${ordinal(highlightIndex + 1)}</td>
+          <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
+          <td>${team.location}</td>
+          <td class="${sortBy === 'tot' ? 'sorted' : ''}">${team.values.tot.display}</td>
+          <td class="${sortBy === 'auto' ? 'sorted' : ''}">${team.values.auto.display}</td>
+          <td class="${sortBy === 'dc' ? 'sorted' : ''}">${team.values.dc.display}</td>
+          <td class="${sortBy === 'eg' ? 'sorted' : ''}">${team.values.eg.display}</td>
+        `;
+        tbody.appendChild(row);
       }
 
       sorted.forEach((team, idx) => {
         const row = document.createElement("tr");
         if (highlightTeam && team.teamNumber === highlightTeam) row.classList.add("highlight");
         row.innerHTML = `
-          <td>${idx + 1}</td>
+          <td>${ordinal(idx + 1)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
-          <td class="${team.values.tot.className}">${team.values.tot.display}</td>
-          <td class="${team.values.auto.className}">${team.values.auto.display}</td>
-          <td class="${team.values.dc.className}">${team.values.dc.display}</td>
-          <td class="${team.values.eg.className}">${team.values.eg.display}</td>
+          <td class="${sortBy === 'tot' ? 'sorted' : ''}">${team.values.tot.display}</td>
+          <td class="${sortBy === 'auto' ? 'sorted' : ''}">${team.values.auto.display}</td>
+          <td class="${sortBy === 'dc' ? 'sorted' : ''}">${team.values.dc.display}</td>
+          <td class="${sortBy === 'eg' ? 'sorted' : ''}">${team.values.eg.display}</td>
         `;
         tbody.appendChild(row);
       });
