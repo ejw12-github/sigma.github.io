@@ -245,7 +245,7 @@
           cachedData.push({ teamNumber, name, location, values });
 
           renderLiveTable(sortBy, highlightTeam);
-          document.getElementById("loading").textContent = `Processed ${i + 1}/${teams.length}`;
+          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
         }
 
         document.getElementById("loading").textContent = "";
