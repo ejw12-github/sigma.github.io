@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Scouting</title>
+  <title>FTC Event OPR Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -158,7 +158,7 @@
     }
 
     function renderOPRCell(opr, key, sortBy) {
-      if (!opr.rank) return `<td class="${key === sortBy ? 'sorted' : ''}">No Data</td>`;
+      if (!opr || opr.value == null || opr.rank == null) return `<td class="${key === sortBy ? 'sorted' : ''}">No Data</td>`;
       let cls = '';
       if (opr.rank < 100) cls = 'rank-green';
       else if (opr.rank < 250) cls = 'rank-yellow';
@@ -192,10 +192,10 @@
         tbody.appendChild(row);
       }
 
-      sorted.forEach((team, idx) => {
+      sorted.forEach((team) => {
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${ordinal(idx + 1 + (highlight ? 1 : 0))}</td>
+          <td>${ordinal(team.values[sortBy]?.rank || 0)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
           ${renderOPRCell(team.values.tot, 'tot', sortBy)}
