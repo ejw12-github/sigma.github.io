@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -103,6 +101,20 @@
       font-size: 14px;
       color: #888;
     }
+
+    /* New OPR rank styles */
+    .rank-green {
+      color: #00e676;
+      font-weight: bold;
+    }
+    .rank-yellow {
+      color: #ffeb3b;
+      font-weight: bold;
+    }
+    .rank-orange {
+      color: #ff9800;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -180,6 +192,16 @@
     function ordinal(n) {
       const s = ["th", "st", "nd", "rd"], v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    function renderOPRCell(opr, key, sortBy) {
+      if (!opr.rank) return `<td class="${key === sortBy ? 'sorted' : ''}">${opr.display}</td>`;
+      let cls = '';
+      if (opr.rank < 100) cls = 'rank-green';
+      else if (opr.rank < 250) cls = 'rank-yellow';
+      else if (opr.rank < 500) cls = 'rank-orange';
+
+      return `<td class="${key === sortBy ? 'sorted' : ''} ${cls}">${opr.display}</td>`;
     }
 
     async function loadData() {
@@ -273,10 +295,10 @@
           <td>${ordinal(highlightIndex + 1)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
-          <td class="${sortBy === 'tot' ? 'sorted' : ''}">${team.values.tot.display}</td>
-          <td class="${sortBy === 'auto' ? 'sorted' : ''}">${team.values.auto.display}</td>
-          <td class="${sortBy === 'dc' ? 'sorted' : ''}">${team.values.dc.display}</td>
-          <td class="${sortBy === 'eg' ? 'sorted' : ''}">${team.values.eg.display}</td>
+          ${renderOPRCell(team.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(team.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(team.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(team.values.eg, 'eg', sortBy)}
         `;
         tbody.appendChild(row);
       }
@@ -288,10 +310,10 @@
           <td>${ordinal(idx + 1)}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
           <td>${team.location}</td>
-          <td class="${sortBy === 'tot' ? 'sorted' : ''}">${team.values.tot.display}</td>
-          <td class="${sortBy === 'auto' ? 'sorted' : ''}">${team.values.auto.display}</td>
-          <td class="${sortBy === 'dc' ? 'sorted' : ''}">${team.values.dc.display}</td>
-          <td class="${sortBy === 'eg' ? 'sorted' : ''}">${team.values.eg.display}</td>
+          ${renderOPRCell(team.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(team.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(team.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(team.values.eg, 'eg', sortBy)}
         `;
         tbody.appendChild(row);
       });
