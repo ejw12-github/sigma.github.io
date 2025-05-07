@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <met charset="UTF-8" />
+  <meta charset="UTF-8" />
   <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
@@ -104,11 +104,36 @@
     .rank-green { color: #00e676; font-weight: bold; }
     .rank-yellow { color: #ffeb3b; font-weight: bold; }
     .rank-orange { color: #ff9800; font-weight: bold; }
+
+    /* Light theme styles */
+    body.light {
+      background-color: #f0f0f0;
+      color: #111;
+    }
+    body.light input, body.light select, body.light button {
+      background-color: #fff;
+      color: #111;
+      border: 1px solid #bbb;
+    }
+    body.light table {
+      background-color: #ffffff;
+    }
+    body.light th {
+      background-color: #ffffff;
+      color: #111;
+    }
+    body.light tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    body.light .popup {
+      background-color: #ffffff;
+      color: #111;
+      border-color: #6200ee;
+    }
   </style>
 </head>
 <body>
   <button id="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-
   <h1 id="event-title">FTC Event Scouting</h1>
   <div class="info" id="event-info"></div>
 
@@ -153,13 +178,11 @@
   <div id="footer">Powered by FTCScout API</div>
 
   <script>
-    let cachedData = [];
+    const dataCache = new Map();
     let abortController = null;
 
     function toggleTheme() {
-      const isDark = document.body.style.backgroundColor !== 'rgb(240, 240, 240)';
-      document.body.style.backgroundColor = isDark ? '#f0f0f0' : '#121212';
-      document.body.style.color = isDark ? '#111' : '#e0e0e0';
+      document.body.classList.toggle('light');
     }
 
     function addPopup(message) {
@@ -196,10 +219,10 @@
       const year = document.getElementById("year").value;
       const sortBy = document.getElementById("sortBy").value;
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
+      const key = `${year}_${code}`;
 
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
-      cachedData = [];
       document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
@@ -210,44 +233,51 @@
       document.getElementById("loading").textContent = "Loading event...";
 
       try {
-        const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
+        let cached = dataCache.get(key);
+        if (!cached) {
+          const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
+          const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
+
+          const teamData = [];
+          for (let i = 0; i < teams.length; i++) {
+            const teamNumber = teams[i].teamNumber;
+            let name = "Unknown", location = "Unknown";
+            try {
+              const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
+              name = info.name ?? "Unknown";
+              location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
+            } catch {}
+
+            let stats = {};
+            try {
+              stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
+            } catch {}
+
+            const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
+              const val = stats[key]?.value;
+              const rank = stats[key]?.rank;
+              acc[key] = val !== undefined && rank !== undefined
+                ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
+                : { display: "No Data" };
+              return acc;
+            }, {});
+
+            teamData.push({ teamNumber, name, location, values });
+
+            document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length}...`;
+          }
+          cached = { event, teamData };
+          dataCache.set(key, cached);
+        }
+
+        const { event, teamData } = cached;
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
         const start = new Date(event.start).toLocaleDateString();
         const end = new Date(event.end).toLocaleDateString();
         const location = event.city || event.state ? `${event.city ?? ''}, ${event.state ?? ''}, ${event.country}` : event.country;
         document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
 
-        const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
-
-        for (let i = 0; i < teams.length; i++) {
-          const teamNumber = teams[i].teamNumber;
-          let name = "Unknown", location = "Unknown";
-          try {
-            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
-            name = info.name ?? "Unknown";
-            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
-          } catch {}
-
-          let stats = {};
-          try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
-          } catch {}
-
-          const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
-            const val = stats[key]?.value;
-            const rank = stats[key]?.rank;
-            acc[key] = val !== undefined && rank !== undefined
-              ? { value: val, rank, display: `${val.toFixed(2)} (${rank})` }
-              : { display: "No Data" };
-            return acc;
-          }, {});
-
-          cachedData.push({ teamNumber, name, location, values });
-
-          renderLiveTable(sortBy, highlightTeam);
-          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
-        }
-
+        renderLiveTable(teamData, sortBy, highlightTeam);
         document.getElementById("loading").textContent = "";
         addPopup(`Finished scouting ${event.name}`);
       } catch (e) {
@@ -258,11 +288,28 @@
       }
     }
 
-    function renderLiveTable(sortBy, highlightTeam) {
+    function renderLiveTable(data, sortBy, highlightTeam) {
       const tbody = document.querySelector("#rankings tbody");
       tbody.innerHTML = "";
 
-      const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
+      const sorted = [...data].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
+      const highlightEntry = sorted.find(t => t.teamNumber === highlightTeam);
+
+      if (highlightEntry) {
+        const highlightRow = document.createElement("tr");
+        highlightRow.classList.add("highlight");
+        highlightRow.innerHTML = `
+          <td>—</td>
+          <td><a href="https://ftcscout.org/teams/${highlightEntry.teamNumber}" target="_blank">#${highlightEntry.teamNumber} - ${highlightEntry.name}</a></td>
+          <td>${highlightEntry.location}</td>
+          ${renderOPRCell(highlightEntry.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(highlightEntry.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(highlightEntry.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(highlightEntry.values.eg, 'eg', sortBy)}
+        `;
+        tbody.appendChild(highlightRow);
+      }
+
       sorted.forEach((team, idx) => {
         const row = document.createElement("tr");
         if (team.teamNumber === highlightTeam) row.classList.add("highlight");
@@ -278,7 +325,7 @@
         tbody.appendChild(row);
       });
 
-      document.getElementById("total-teams").textContent = `Total Teams: ${cachedData.length}`;
+      document.getElementById("total-teams").textContent = `Total Teams: ${data.length}`;
     }
   </script>
 </body>
