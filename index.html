@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -240,12 +240,13 @@
           }, {});
 
           cachedData.push({ teamNumber, name, location, values });
-          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
+
+          document.getElementById("loading").textContent = `Scouting ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
+          renderLiveTable(sortBy, highlightTeam); // Auto-refresh
         }
 
         document.getElementById("loading").textContent = "";
         addPopup(`Finished scouting ${event.name}`);
-        renderLiveTable(sortBy, highlightTeam);
       } catch (e) {
         if (e.name !== 'AbortError') {
           document.getElementById("loading").textContent = "";
