@@ -132,7 +132,6 @@
   <div id="footer">Powered by FTCScout API</div>
 
   <script>
-    let eventCache = {};
     let cachedData = [];
     let lastKey = '';
     let abortController = null;
@@ -175,13 +174,13 @@
 
       const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
 
-      const highlight = sorted.find(t => t.teamNumber === highlightTeam);
-      const otherTeams = sorted.filter(t => t.teamNumber !== highlightTeam);
+      const highlightIndex = sorted.findIndex(t => t.teamNumber === highlightTeam);
+      const highlight = highlightIndex !== -1 ? sorted.splice(highlightIndex, 1)[0] : null;
 
       if (highlight) {
-        const pinnedRow = document.createElement("tr");
-        pinnedRow.classList.add("highlight");
-        pinnedRow.innerHTML = `
+        const row = document.createElement("tr");
+        row.classList.add("highlight");
+        row.innerHTML = `
           <td>${ordinal(highlight.values[sortBy]?.rank || 0)}</td>
           <td><a href="https://ftcscout.org/teams/${highlight.teamNumber}" target="_blank">#${highlight.teamNumber} - ${highlight.name}</a></td>
           <td>${highlight.location}</td>
@@ -190,13 +189,11 @@
           ${renderOPRCell(highlight.values.dc, 'dc', sortBy)}
           ${renderOPRCell(highlight.values.eg, 'eg', sortBy)}
         `;
-        tbody.appendChild(pinnedRow);
+        tbody.appendChild(row);
       }
 
-      otherTeams.forEach((team, idx) => {
+      sorted.forEach((team, idx) => {
         const row = document.createElement("tr");
-        if (team.teamNumber === highlightTeam) row.classList.add("highlight");
-
         row.innerHTML = `
           <td>${ordinal(idx + 1 + (highlight ? 1 : 0))}</td>
           <td><a href="https://ftcscout.org/teams/${team.teamNumber}" target="_blank">#${team.teamNumber} - ${team.name}</a></td>
@@ -225,18 +222,23 @@
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
 
       const key = `${code}_${year}`;
-
-      if (key === lastKey) return;
+      if (key === lastKey) {
+        renderLiveTable(sortBy, highlightTeam);
+        return;
+      }
 
       if (abortController) abortController.abort();
       abortController = new AbortController();
 
       try {
+        document.getElementById("loading").textContent = "Loading...";
         const data = await fetchJSON(`https://ftcscout.org/api/v1/opr/${code}/${year}`, { signal: abortController.signal });
         cachedData = data.teams;
-
+        lastKey = key;
+        document.getElementById("loading").textContent = "";
         renderLiveTable(sortBy, highlightTeam);
       } catch (error) {
+        document.getElementById("loading").textContent = "";
         addPopup(`Failed to load data: ${error.message}`);
       }
     }
