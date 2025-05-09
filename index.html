@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -127,7 +127,7 @@
       <option value="2020">2020 - Ultimate Goal</option>
       <option value="2019">2019 - Skystone</option>
     </select>
-    <select id="sortBy" onchange="renderLiveTable(this.value, parseInt(document.getElementById('highlightTeam').value))">
+    <select id="sortBy" onchange="handleSortChange()">
       <option value="tot">Total OPR</option>
       <option value="auto">Auto OPR</option>
       <option value="dc">Teleop OPR</option>
@@ -156,7 +156,6 @@
   </table>
 
   <div class="info" id="total-teams"></div>
-
   <div class="popup-container" id="popup-container"></div>
   <div id="footer">Powered by FTCScout API</div>
 
@@ -189,6 +188,18 @@
       return `<td class="${key === sortBy ? 'sorted' : ''} ${cls}">${opr.display}</td>`;
     }
 
+    function clearHeaderHighlights() {
+      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
+    }
+
+    function handleSortChange() {
+      const sortBy = document.getElementById("sortBy").value;
+      const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
+      clearHeaderHighlights();
+      document.getElementById(`${sortBy}Header`).classList.add("highlight");
+      renderLiveTable(sortBy, highlightTeam);
+    }
+
     async function fetchJSON(url, signal) {
       const res = await fetch(url, { signal });
       if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -202,7 +213,7 @@
       const highlightTeam = parseInt(document.getElementById("highlightTeam").value.trim()) || null;
 
       if (code === lastEventCode && year === lastYear) {
-        renderLiveTable(sortBy, highlightTeam);
+        handleSortChange();
         return;
       }
 
@@ -211,7 +222,7 @@
       cachedData = [];
       lastEventCode = code;
       lastYear = year;
-      document.querySelectorAll("th").forEach(th => th.classList.remove("highlight"));
+      clearHeaderHighlights();
       document.getElementById(`${sortBy}Header`).classList.add("highlight");
 
       if (abortController) abortController.abort();
