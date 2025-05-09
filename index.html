@@ -1,10 +1,8 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Scouting</title>
+  <title>FTC Event OPR Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -101,6 +99,16 @@
     .rank-green { color: #00e676; font-weight: bold; }
     .rank-yellow { color: #ffeb3b; font-weight: bold; }
     .rank-orange { color: #ff9800; font-weight: bold; }
+    .warning-box {
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 10px 15px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #ffeeba;
+      display: inline-block;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -127,6 +135,7 @@
     <input type="number" id="highlightTeam" placeholder="Team # to highlight" />
     <button onclick="loadData()">Load Rankings</button>
     <div id="loading"></div>
+    <div id="no-data-warning"></div>
   </div>
 
   <table id="rankings">
@@ -297,6 +306,11 @@
       }
 
       document.getElementById("total-teams").textContent = `Total Teams: ${cachedData.length}`;
+      const noDataCount = cachedData.filter(team => team.values.tot.display === "No Data").length;
+      const warningBox = document.getElementById("no-data-warning");
+      warningBox.innerHTML = noDataCount > 0
+        ? `<div class="warning-box">⚠️ Warning: ${noDataCount} team${noDataCount > 1 ? "s" : ""} in this event ${noDataCount > 1 ? "have" : "has"} no data this season!</div>`
+        : "";
     }
   </script>
 </body>
