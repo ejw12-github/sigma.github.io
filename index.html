@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event Scouting</title>
+  <title>FTC Event OPR Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -58,6 +58,7 @@
     #loading {
       color: #bb86fc;
       margin-top: 10px;
+      font-weight: bold;
     }
     .popup-container {
       position: fixed;
@@ -103,7 +104,7 @@
       background-color: #fff3cd;
       color: #856404;
       padding: 10px 15px;
-      margin-bottom: 10px;
+      margin-top: 20px;
       border-radius: 8px;
       border: 1px solid #ffeeba;
       display: inline-block;
@@ -134,12 +135,10 @@
     </select>
     <input type="number" id="highlightTeam" placeholder="Team # to highlight" />
     <button onclick="loadData()">Load Rankings</button>
-    <div id="loading"></div>
   </div>
 
-  <div id="no-data-warning"></div> <!-- Moved here -->
-
-  <div class="info" id="total-teams"></div>
+  <div id="no-data-warning"></div>
+  <div id="loading"></div>
 
   <table id="rankings">
     <thead>
@@ -155,6 +154,8 @@
     </thead>
     <tbody></tbody>
   </table>
+
+  <div class="info" id="total-teams"></div>
 
   <div class="popup-container" id="popup-container"></div>
   <div id="footer">Powered by FTCScout API</div>
@@ -218,6 +219,8 @@
       const { signal } = abortController;
 
       document.getElementById("loading").textContent = "Loading event...";
+      document.getElementById("no-data-warning").innerHTML = "";
+      document.getElementById("total-teams").textContent = "";
 
       try {
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
@@ -254,7 +257,9 @@
 
           cachedData.push({ teamNumber, name, location, values });
 
-          document.getElementById("loading").textContent = `Scouting ${i + 1} / ${teams.length} (${Math.round(((i + 1) / teams.length) * 100)}%)...`;
+          const percent = Math.round(((i + 1) / teams.length) * 100);
+          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${percent}%)`;
+
           renderLiveTable(sortBy, highlightTeam);
         }
 
