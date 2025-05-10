@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
@@ -242,21 +242,20 @@
         document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
+        const startTime = performance.now();
 
-        await Promise.all(teams.map(async (team, i) => {
-          const teamNumber = team.teamNumber;
+        for (let i = 0; i < teams.length; i++) {
+          const teamNumber = teams[i].teamNumber;
           let name = "Unknown", location = "Unknown", stats = {};
 
           try {
-            const [info, statsRes] = await Promise.all([
+            const [info, teamStats] = await Promise.all([
               fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal).catch(() => ({})),
               fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal).catch(() => ({}))
             ]);
             name = info.name ?? "Unknown";
-            location = info.city || info.state
-              ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}`
-              : info.country;
-            stats = statsRes;
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
+            stats = teamStats;
           } catch {}
 
           const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
@@ -270,13 +269,13 @@
 
           cachedData.push({ teamNumber, name, location, values });
 
-          if ((i + 1) % 10 === 0 || i === teams.length - 1) {
-            document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length}`;
-            renderLiveTable(sortBy, highlightTeam);
-          }
-        }));
+          const percent = Math.round(((i + 1) / teams.length) * 100);
+          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${percent}%)`;
+        }
 
-        document.getElementById("loading").textContent = "";
+        const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+        renderLiveTable(sortBy, highlightTeam);
+        document.getElementById("loading").textContent = `Finished processing teams in ${duration} seconds`;
         addPopup(`Finished scouting ${event.name}`);
       } catch (e) {
         if (e.name !== 'AbortError') {
