@@ -1,12 +1,19 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FTC Event OPR Scouting</title>
+  <title>FTC Event Scouting</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root { font-family: 'Inter', sans-serif; }
-    body { background-color: #121212; color: #e0e0e0; margin: 0; padding: 0; text-align: center; }
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
     h1 { font-size: 30px; margin-top: 20px; }
     .info { margin: 5px 0 15px; font-size: 16px; color: #ccc; }
     .input-container { margin: 20px 0; }
@@ -41,8 +48,13 @@
       color: #bb86fc !important;
       font-weight: bold;
     }
-    .sorted { background-color: #2e004f !important; }
-    a { color: #9cd1ff; text-decoration: none; }
+    .sorted {
+      background-color: #2e004f !important;
+    }
+    a {
+      color: #9cd1ff;
+      text-decoration: none;
+    }
     a:hover { text-decoration: underline; }
     #loading {
       color: #bb86fc;
@@ -150,7 +162,9 @@
 
   <script>
     let cachedData = [];
-    let lastEventCode = '', lastYear = '', abortController = null;
+    let lastEventCode = '';
+    let lastYear = '';
+    let abortController = null;
 
     function addPopup(message) {
       const container = document.getElementById("popup-container");
@@ -221,8 +235,6 @@
       document.getElementById("total-teams").textContent = "";
 
       try {
-        const startTime = performance.now();
-
         const event = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}`, signal);
         document.getElementById("event-title").textContent = `${event.name} OPR Rankings`;
         const start = new Date(event.start).toLocaleDateString();
@@ -231,16 +243,20 @@
         document.getElementById("event-info").textContent = `${location} • ${start} - ${end}`;
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
-        const total = teams.length;
 
-        for (let i = 0; i < total; i++) {
-          const team = teams[i];
-          const teamNumber = team.teamNumber;
+        for (let i = 0; i < teams.length; i++) {
+          const teamNumber = teams[i].teamNumber;
+          let name = "Unknown", location = "Unknown";
+          try {
+            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
+            name = info.name ?? "Unknown";
+            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
+          } catch {}
 
-          const [info, stats] = await Promise.all([
-            fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal).catch(() => ({})),
-            fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal).catch(() => ({}))
-          ]);
+          let stats = {};
+          try {
+            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
+          } catch {}
 
           const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
             const val = stats[key]?.value;
@@ -251,18 +267,15 @@
             return acc;
           }, {});
 
-          const location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country ?? "Unknown";
-          cachedData.push({ teamNumber, name: info.name ?? "Unknown", location, values });
+          cachedData.push({ teamNumber, name, location, values });
 
-          const percent = Math.round(((i + 1) / total) * 100);
-          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${total} (${percent}%)`;
+          const percent = Math.round(((i + 1) / teams.length) * 100);
+          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${percent}%)`;
+
+          renderLiveTable(sortBy, highlightTeam);
         }
 
-        const endTime = performance.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
-        document.getElementById("loading").textContent = `Finished processing teams in ${duration} seconds`;
-
-        renderLiveTable(sortBy, highlightTeam);
+        document.getElementById("loading").textContent = "";
         addPopup(`Finished scouting ${event.name}`);
       } catch (e) {
         if (e.name !== 'AbortError') {
@@ -278,7 +291,6 @@
 
       const sorted = [...cachedData].sort((a, b) => (b.values[sortBy]?.value ?? -Infinity) - (a.values[sortBy]?.value ?? -Infinity));
       let highlightEntry = null;
-
       sorted.forEach((team, idx) => {
         const row = document.createElement("tr");
         if (team.teamNumber === highlightTeam) {
@@ -296,6 +308,21 @@
         `;
         tbody.appendChild(row);
       });
+
+      if (highlightEntry) {
+        const topRow = document.createElement("tr");
+        topRow.classList.add("highlight");
+        topRow.innerHTML = `
+          <td>${highlightEntry.rank}</td>
+          <td><a href="https://ftcscout.org/teams/${highlightEntry.teamNumber}" target="_blank">#${highlightEntry.teamNumber} - ${highlightEntry.name}</a></td>
+          <td>${highlightEntry.location}</td>
+          ${renderOPRCell(highlightEntry.values.tot, 'tot', sortBy)}
+          ${renderOPRCell(highlightEntry.values.auto, 'auto', sortBy)}
+          ${renderOPRCell(highlightEntry.values.dc, 'dc', sortBy)}
+          ${renderOPRCell(highlightEntry.values.eg, 'eg', sortBy)}
+        `;
+        tbody.insertBefore(topRow, tbody.firstChild);
+      }
 
       const noDataCount = cachedData.filter(team => team.values.tot.display === "No Data").length;
       const warningBox = document.getElementById("no-data-warning");
