@@ -243,18 +243,20 @@
 
         const teams = await fetchJSON(`https://api.ftcscout.org/rest/v1/events/${year}/${code}/teams`, signal);
 
-        for (let i = 0; i < teams.length; i++) {
-          const teamNumber = teams[i].teamNumber;
-          let name = "Unknown", location = "Unknown";
-          try {
-            const info = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal);
-            name = info.name ?? "Unknown";
-            location = info.city || info.state ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}` : info.country;
-          } catch {}
+        await Promise.all(teams.map(async (team, i) => {
+          const teamNumber = team.teamNumber;
+          let name = "Unknown", location = "Unknown", stats = {};
 
-          let stats = {};
           try {
-            stats = await fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal);
+            const [info, statsRes] = await Promise.all([
+              fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}`, signal).catch(() => ({})),
+              fetchJSON(`https://api.ftcscout.org/rest/v1/teams/${teamNumber}/quick-stats?season=${year}`, signal).catch(() => ({}))
+            ]);
+            name = info.name ?? "Unknown";
+            location = info.city || info.state
+              ? `${info.city ?? ''}, ${info.state ?? ''}, ${info.country}`
+              : info.country;
+            stats = statsRes;
           } catch {}
 
           const values = ['tot', 'auto', 'dc', 'eg'].reduce((acc, key) => {
@@ -268,11 +270,11 @@
 
           cachedData.push({ teamNumber, name, location, values });
 
-          const percent = Math.round(((i + 1) / teams.length) * 100);
-          document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length} (${percent}%)`;
-
-          renderLiveTable(sortBy, highlightTeam);
-        }
+          if ((i + 1) % 10 === 0 || i === teams.length - 1) {
+            document.getElementById("loading").textContent = `Processing team ${i + 1} / ${teams.length}`;
+            renderLiveTable(sortBy, highlightTeam);
+          }
+        }));
 
         document.getElementById("loading").textContent = "";
         addPopup(`Finished scouting ${event.name}`);
