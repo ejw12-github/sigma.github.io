@@ -1,47 +1,81 @@
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.library;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name = "Auto: 2-Motor Forward then 45° Back", group = "Linear Opmode")
-public class TwoMotorAuto extends LinearOpMode {
+/**
+ * Omni-directional pathing class for 2-wheel omni drive robots.
+ * Moves in any direction using vector math and time-based driving.
+ */
+public class OnbotPathing_2wOmni {
 
-    private DcMotor leftDrive, rightDrive;
+    private final DcMotor motorX;  // Strafing motor (X-axis)
+    private final DcMotor motorY;  // Forward/backward motor (Y-axis)
 
-    @Override
-    public void runOpMode() {
-        // Initialize hardware
-        leftDrive = hardwareMap.dcMotor.get("leftDrive");
-        rightDrive = hardwareMap.dcMotor.get("rightDrive");
+    private double intervalDistance = 1.0; // Inches per 0.1s interval
+    private static final double INTERVAL_TIME_SEC = 0.1;
 
-        // Reverse one motor if needed for forward movement to work correctly
-        leftDrive.setDirection(DcMotor.Direction.FORWARD);
-        rightDrive.setDirection(DcMotor.Direction.REVERSE);
+    /**
+     * Constructor.
+     *
+     * @param motorX Motor responsible for lateral (X-axis) movement
+     * @param motorY Motor responsible for longitudinal (Y-axis) movement
+     */
+    public OnbotPathing_2wOmni(DcMotor motorX, DcMotor motorY) {
+        this.motorX = motorX;
+        this.motorY = motorY;
+    }
 
-        waitForStart();
+    /**
+     * Sets how far (in inches) the robot travels in 0.1s at full power.
+     *
+     * @param distanceInInches inches per interval (default is 1.0)
+     */
+    public void setIntervalDistance(double distanceInInches) {
+        this.intervalDistance = distanceInInches;
+    }
 
-        if (opModeIsActive()) {
-            // 1. Drive forward for 1 second
-            leftDrive.setPower(0.5);
-            rightDrive.setPower(0.5);
-            sleep(1000);
+    /**
+     * Moves the robot toward the (x, y) coordinate using the shortest direction.
+     * Will reverse if it's more efficient.
+     *
+     * @param x Target X in inches
+     * @param y Target Y in inches
+     */
+    public void directionalDriveTo(double x, double y) {
+        double distance = Math.hypot(x, y);
+        if (distance == 0) return;
 
-            // 2. Stop for 0.5 seconds
-            leftDrive.setPower(0);
-            rightDrive.setPower(0);
-            sleep(500);
+        double angle = Math.atan2(y, x);  // Forward vector angle
+        double powerX = Math.cos(angle);
+        double powerY = Math.sin(angle);
 
-            // 3. Go backward at a 45° angle to the right
-            // Only left motor powers backward
-            leftDrive.setPower(-0.5);
-            rightDrive.setPower(0.0);
-            sleep(1000);
-
-            // 4. Stop
-            leftDrive.setPower(0);
-            rightDrive.setPower(0);
+        // Choose reverse if more efficient (shorter total motor movement)
+        if (Math.abs(powerX) + Math.abs(powerY) > Math.abs(-powerX) + Math.abs(-powerY)) {
+            powerX *= -1;
+            powerY *= -1;
         }
+
+        double totalTimeSec = (distance / intervalDistance) * INTERVAL_TIME_SEC;
+
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+
+        motorX.setPower(powerX);
+        motorY.setPower(powerY);
+
+        while (timer.seconds() < totalTimeSec) {
+            // Passive wait
+        }
+
+        stopMotors();
+    }
+
+    /**
+     * Stops both motors.
+     */
+    private void stopMotors() {
+        motorX.setPower(0);
+        motorY.setPower(0);
     }
 }
